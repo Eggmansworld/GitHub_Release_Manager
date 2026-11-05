@@ -1,0 +1,88 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:EggmansReleaseManager.ViewModels"
+        x:Class="EggmansReleaseManager.Views.SettingsWindow"
+        x:DataType="vm:SettingsViewModel"
+        Title="Sysop Setup"
+        Width="820" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1">
+  <Border BorderBrush="{DynamicResource FrameHiBrush}" BorderThickness="1">
+    <StackPanel>
+      <Border Name="TitleDrag" Background="{DynamicResource SelBgBrush}" Padding="10,4">
+        <TextBlock Foreground="{DynamicResource SelFgBrush}" FontWeight="Bold" Text="▓▒░ SYSOP SETUP ░▒▓" />
+      </Border>
+
+      <StackPanel Margin="16,6,16,14" Spacing="4">
+        <HeaderedContentControl Theme="{StaticResource RetroPanel}" Header="TRANSFER">
+          <Grid ColumnDefinitions="200,*" RowDefinitions="Auto,Auto,Auto" >
+            <TextBlock Grid.Row="0" Text="MAX THREADS ......" Classes="label" />
+            <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding MaxThreads}" Minimum="1" Maximum="16" Increment="1"
+                           FormatString="0" Width="120" HorizontalAlignment="Left" />
+            <TextBlock Grid.Row="1" Text="AUTO-UPDATE (min) " Classes="label" Margin="0,6,0,0" />
+            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="16" Margin="0,6,0,0">
+              <NumericUpDown Value="{Binding AutoUpdateInterval}" Minimum="5" Maximum="1440" Increment="5" FormatString="0" Width="120" />
+              <CheckBox Content="enabled" IsChecked="{Binding AutoUpdateEnabled}" />
+            </StackPanel>
+            <TextBlock Grid.Row="2" Grid.Column="1" Classes="dim" Margin="0,4,0,0" TextWrapping="Wrap"
+                       Text="Minimum 5 minutes. Anonymous API access is 60 requests/hour - add a token below if you track lots of repos." />
+          </Grid>
+        </HeaderedContentControl>
+
+        <HeaderedContentControl Theme="{StaticResource RetroPanel}" Header="LiNKS">
+          <Grid ColumnDefinitions="200,*,Auto" RowDefinitions="Auto,Auto,Auto">
+            <TextBlock Grid.Row="0" Text="GiTHUB TOKEN ....." Classes="label" />
+            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding GithubToken}" PasswordChar="{Binding TokenChar}"
+                     Watermark="ghp_... (zero-scope classic token is enough for public repos)" />
+            <CheckBox Grid.Row="0" Grid.Column="2" Content="show" IsChecked="{Binding RevealToken}" Margin="10,0,0,0" />
+            <TextBlock Grid.Row="1" Text="DiSCORD WEBHOOK .." Classes="label" Margin="0,6,0,0" />
+            <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding DiscordWebhook}" Margin="0,6,0,0"
+                     Watermark="https://discord.com/api/webhooks/..." />
+            <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Classes="dim" Margin="0,4,0,0" TextWrapping="Wrap"
+                       Text="Both are stored in plain text in Eggmans_GitHub_Release_Manager_config.json next to the exe - keep that file out of git." />
+          </Grid>
+        </HeaderedContentControl>
+
+        <HeaderedContentControl Theme="{StaticResource RetroPanel}" Header="ViSUALS">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="accent" Text="COLOUR SCHEME (live preview)" />
+            <ItemsControl ItemsSource="{Binding Themes}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ThemeChoice">
+                  <RadioButton GroupName="theme" IsChecked="{Binding IsSelected}" Margin="0,1">
+                    <TextBlock>
+                      <Run Text="{Binding Name}" />
+                      <Run Text=" — " Foreground="{DynamicResource FrameHiBrush}" />
+                      <Run Text="{Binding Blurb}" Foreground="{DynamicResource DimBrush}" />
+                    </TextBlock>
+                  </RadioButton>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Grid ColumnDefinitions="200,*,Auto,Auto" Margin="0,6,0,0">
+              <TextBlock Text="FONT FAMiLY ......" Classes="label" />
+              <TextBox Grid.Column="1" Text="{Binding FontFamily}" />
+              <TextBlock Grid.Column="2" Text="  SiZE " Classes="label" />
+              <NumericUpDown Grid.Column="3" Value="{Binding FontSize}" Minimum="9" Maximum="24" Increment="1" FormatString="0" Width="110" />
+            </Grid>
+            <TextBlock Classes="dim" TextWrapping="Wrap"
+                       Text="Comma-separated fallback list. For the full DOS look install 'Px437 IBM VGA 8x16' (int10h.org Oldschool PC Font Pack) and put it first." />
+            <WrapPanel Margin="0,4,0,0">
+              <CheckBox Content="CRT scanlines" IsChecked="{Binding CrtScanlines}" Margin="0,0,24,0" />
+              <CheckBox Content="cracktro scroller" IsChecked="{Binding Scroller}" Margin="0,0,24,0" />
+              <CheckBox Content="modem handshake on startup (with sound)" IsChecked="{Binding ModemIntro}" Margin="0,0,10,0" />
+              <Button Classes="flat" Content="[ ♪ DiAL NOW ]" Command="{Binding TestDialCommand}" ToolTip.Tip="Play the handshake" />
+            </WrapPanel>
+          </StackPanel>
+        </HeaderedContentControl>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,10,0,0">
+          <Button Classes="hot" Content="SAVE" Click="OnSave" MinWidth="110" />
+          <Button Content="CANCEL" Click="OnCancel" MinWidth="110" />
+        </StackPanel>
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</Window>

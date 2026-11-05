@@ -1,0 +1,183 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="using:EggmansReleaseManager.UI">
+
+  <!-- ═══════════ BUTTON: [ LABEL ] with inverse-video hover ═══════════ -->
+  <ControlTheme x:Key="{x:Type Button}" TargetType="Button">
+    <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource FrameHiBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="10,3" />
+    <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
+    <Setter Property="FontSize" Value="{DynamicResource BaseFontSize}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_Border"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}">
+          <ContentPresenter Name="PART_ContentPresenter"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Padding="{TemplateBinding Padding}"
+                            Foreground="{TemplateBinding Foreground}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+    <Style Selector="^.hot">
+      <Setter Property="Foreground" Value="{DynamicResource HiBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="^.danger">
+      <Setter Property="Foreground" Value="{DynamicResource ErrBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ErrBrush}" />
+    </Style>
+    <Style Selector="^.flat">
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="6,0" />
+    </Style>
+    <Style Selector="^:pointerover /template/ Border#PART_Border">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Foreground" Value="{DynamicResource BgBrush}" />
+    </Style>
+    <Style Selector="^.danger:pointerover /template/ Border#PART_Border">
+      <Setter Property="Background" Value="{DynamicResource ErrBrush}" />
+    </Style>
+    <Style Selector="^:pressed /template/ Border#PART_Border">
+      <Setter Property="Background" Value="{DynamicResource Accent2Brush}" />
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="Cursor" Value="Arrow" />
+    </Style>
+    <Style Selector="^:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Foreground" Value="{DynamicResource DimBrush}" />
+    </Style>
+    <Style Selector="^:disabled /template/ Border#PART_Border">
+      <Setter Property="BorderBrush" Value="{DynamicResource FrameBrush}" />
+      <Setter Property="Background" Value="{DynamicResource BgBrush}" />
+    </Style>
+  </ControlTheme>
+
+  <!-- ═══════════ CHECKBOX: [■] label ═══════════ -->
+  <ControlTheme x:Key="{x:Type CheckBox}" TargetType="CheckBox">
+    <Setter Property="Foreground" Value="{DynamicResource FgBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
+    <Setter Property="FontSize" Value="{DynamicResource BaseFontSize}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel Orientation="Horizontal" Background="{TemplateBinding Background}" Spacing="6">
+          <TextBlock Name="PART_Box" Text="[ ]" Foreground="{DynamicResource FrameHiBrush}" VerticalAlignment="Center" />
+          <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                            Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+        </StackPanel>
+      </ControlTemplate>
+    </Setter>
+    <Style Selector="^:checked /template/ TextBlock#PART_Box">
+      <Setter Property="Text" Value="[■]" />
+      <Setter Property="Foreground" Value="{DynamicResource OkBrush}" />
+    </Style>
+    <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Foreground" Value="{DynamicResource HiBrush}" />
+    </Style>
+    <Style Selector="^:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Foreground" Value="{DynamicResource DimBrush}" />
+    </Style>
+  </ControlTheme>
+
+  <!-- ═══════════ RADIO: (•) label ═══════════ -->
+  <ControlTheme x:Key="{x:Type RadioButton}" TargetType="RadioButton">
+    <Setter Property="Foreground" Value="{DynamicResource FgBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
+    <Setter Property="FontSize" Value="{DynamicResource BaseFontSize}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel Orientation="Horizontal" Background="{TemplateBinding Background}" Spacing="6">
+          <TextBlock Name="PART_Box" Text="( )" Foreground="{DynamicResource FrameHiBrush}" VerticalAlignment="Center" />
+          <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                            Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+        </StackPanel>
+      </ControlTemplate>
+    </Setter>
+    <Style Selector="^:checked /template/ TextBlock#PART_Box">
+      <Setter Property="Text" Value="(•)" />
+      <Setter Property="Foreground" Value="{DynamicResource OkBrush}" />
+    </Style>
+    <Style Selector="^:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Foreground" Value="{DynamicResource HiBrush}" />
+    </Style>
+    <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    </Style>
+  </ControlTheme>
+
+  <!-- ═══════════ LISTBOX ITEM: selection bar ═══════════ -->
+  <ControlTheme x:Key="{x:Type ListBoxItem}" TargetType="ListBoxItem">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource FgBrush}" />
+    <Setter Property="Padding" Value="4,1" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ContentPresenter Name="PART_ContentPresenter"
+                          Background="{TemplateBinding Background}"
+                          Foreground="{TemplateBinding Foreground}"
+                          Content="{TemplateBinding Content}"
+                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                          Padding="{TemplateBinding Padding}"
+                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+      </ControlTemplate>
+    </Setter>
+    <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource FrameBrush}" />
+    </Style>
+    <Style Selector="^:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SelBgBrush}" />
+    </Style>
+    <Style Selector="^.plain:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="^.plain:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+  </ControlTheme>
+
+  <!-- ═══════════ PANEL: ╔═[ TITLE ]═══╗ double frame ═══════════ -->
+  <ControlTheme x:Key="RetroPanel" TargetType="HeaderedContentControl">
+    <Setter Property="Padding" Value="8,12,8,8" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid Margin="0,9,0,0">
+          <Border Background="{DynamicResource BgBrush}" BorderBrush="{DynamicResource FrameBrush}" BorderThickness="1" Padding="2">
+            <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource FrameHiBrush}" BorderThickness="1"
+                    Padding="{TemplateBinding Padding}">
+              <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" />
+            </Border>
+          </Border>
+          <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="14,-9,0,0" Background="{DynamicResource BgBrush}" Padding="2,0">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="╡" Foreground="{DynamicResource FrameHiBrush}" />
+              <ContentPresenter Content="{TemplateBinding Header}" Foreground="{DynamicResource HiBrush}"
+                                FontWeight="Bold" Margin="4,0" />
+              <TextBlock Text="╞" Foreground="{DynamicResource FrameHiBrush}" />
+            </StackPanel>
+          </Border>
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+</ResourceDictionary>

@@ -1,0 +1,21 @@
+# build output
+bin/
+obj/
+artifacts/
+*.user
+.vs/
+
+# live data - holds your GitHub token / webhook and machine-specific paths
+Eggmans_GitHub_Release_Manager_config.json
+Eggmans_GitHub_Release_Manager_repos.json
+Eggmans_GitHub_Release_Manager_repos.json.tmp
+*.corrupt_*
+tracked_repos.txt
+_logs/
+_backup/
+downloads/
+TestResults/
+
+# v3 launchers (removed from the repo in v3; v4 is a plain exe)
+legacy/python/*.bat
+legacy/python/*.ico
