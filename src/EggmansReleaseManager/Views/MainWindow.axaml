@@ -1,0 +1,297 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:EggmansReleaseManager.ViewModels"
+        xmlns:ui="using:EggmansReleaseManager.UI"
+        x:Class="EggmansReleaseManager.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="Eggman's GitHub Release Manager"
+        Icon="avares://Eggmans_GitHub_Release_Manager/Assets/app.ico"
+        Width="1280" Height="860" MinWidth="1080" MinHeight="720"
+        WindowStartupLocation="CenterScreen"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1">
+
+  <Window.KeyBindings>
+    <KeyBinding Gesture="F1" Command="{Binding AboutCommand}" />
+    <KeyBinding Gesture="F2" Command="{Binding OpenSettingsCommand}" />
+    <KeyBinding Gesture="F3" Command="{Binding OpenFiltersCommand}" />
+    <KeyBinding Gesture="F5" Command="{Binding UpdateSelectedCommand}" />
+    <KeyBinding Gesture="F6" Command="{Binding UpdateAllCommand}" />
+    <KeyBinding Gesture="F7" Command="{Binding TogglePauseCommand}" />
+    <KeyBinding Gesture="F8" Command="{Binding SafeStopCommand}" />
+    <KeyBinding Gesture="F9" Command="{Binding HardStopCommand}" />
+  </Window.KeyBindings>
+
+  <Border BorderBrush="{DynamicResource FrameHiBrush}" BorderThickness="1">
+    <Grid>
+      <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,5,190,Auto,Auto,Auto,Auto">
+
+        <!-- ══════ 0: title bar + menu ══════ -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Background="{DynamicResource PanelBrush}" Height="30">
+          <Menu Grid.Column="0" VerticalAlignment="Center" Margin="4,0,0,0">
+            <MenuItem Header="_FiLE">
+              <MenuItem Header="Export DB..." Command="{Binding ExportDbCommand}" />
+              <Separator />
+              <MenuItem Header="E_xit" Command="{Binding ExitCommand}" InputGesture="Alt+F4" />
+            </MenuItem>
+            <MenuItem Header="_REPOS">
+              <MenuItem Header="Update Selected Repo" Command="{Binding UpdateSelectedCommand}" InputGesture="F5" />
+              <MenuItem Header="Update ALL Repos" Command="{Binding UpdateAllCommand}" InputGesture="F6" />
+              <Separator />
+              <MenuItem Header="Open Selected Repo on GitHub" Command="{Binding OpenOnGitHubCommand}" />
+              <MenuItem Header="Open Repo Folder" Command="{Binding OpenRepoFolderCommand}" />
+              <Separator />
+              <MenuItem Header="Generate DAT (Selected Repo)" Command="{Binding GenerateDatCommand}" />
+              <MenuItem Header="Cleanup Orphans (Selected Repo)" Command="{Binding CleanupOrphansCommand}" />
+              <Separator />
+              <MenuItem Header="Remove From Tracker" Command="{Binding RemoveRepoCommand}" />
+            </MenuItem>
+            <MenuItem Header="_TOOLS">
+              <MenuItem Header="Filter Control..." Command="{Binding OpenFiltersCommand}" InputGesture="F3" />
+              <MenuItem Header="Filters For Selected Repo..." Command="{Binding OpenRepoFiltersCommand}" />
+              <MenuItem Header="Clean Up Filtered Files..." Command="{Binding CleanupFilteredCommand}" />
+              <Separator />
+              <MenuItem Header="Generate PDF Summary (Selected Repo)" Command="{Binding GeneratePdfCommand}" />
+              <MenuItem Header="Force Hash Rescan (Selected Repo)" Command="{Binding HashRescanCommand}" />
+              <MenuItem Header="Scan Local Files (Rebuild Metadata)" Command="{Binding ScanLocalCommand}" />
+              <Separator />
+              <MenuItem Header="Sysop Setup..." Command="{Binding OpenSettingsCommand}" InputGesture="F2" />
+            </MenuItem>
+            <MenuItem Header="_HELP">
+              <MenuItem Header="About / .NFO" Command="{Binding AboutCommand}" InputGesture="F1" />
+            </MenuItem>
+          </Menu>
+
+          <TextBlock Grid.Column="1" Name="TitleDrag" Background="Transparent"
+                     HorizontalAlignment="Stretch" TextAlignment="Center" VerticalAlignment="Center"
+                     Foreground="{DynamicResource DimBrush}">
+            <Run Text="▓▒░ " Foreground="{DynamicResource FrameHiBrush}" />
+            <Run Text="EGGMAN'S GiTHUB RELEASE MANAGER" Foreground="{DynamicResource AccentBrush}" />
+            <Run Text="{Binding Version}" Foreground="{DynamicResource Accent2Brush}" />
+            <Run Text=" ░▒▓" Foreground="{DynamicResource FrameHiBrush}" />
+          </TextBlock>
+
+          <StackPanel Grid.Column="2" Orientation="Horizontal">
+            <Button Classes="caption" Content="_" Click="OnMinimize" ToolTip.Tip="Minimize" />
+            <Button Classes="caption" Content="□" Click="OnMaximize" ToolTip.Tip="Maximize / restore" />
+            <Button Classes="caption close" Content="X" Click="OnClose" ToolTip.Tip="Hang up (exit)" />
+          </StackPanel>
+        </Grid>
+
+        <!-- ══════ 1: logo header + system box ══════ -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="14,8,14,0">
+          <StackPanel Grid.Column="0" VerticalAlignment="Center">
+            <TextBlock Text="{Binding Logo}" Foreground="{DynamicResource LogoBrush}" FontSize="15" LineHeight="17" />
+            <StackPanel Orientation="Horizontal" Margin="2,4,0,0" Spacing="10">
+              <TextBlock Text="{Binding Tagline}" Classes="accent2" />
+              <TextBlock Text="// .NET + Avalonia ediTiON" Classes="dim" />
+            </StackPanel>
+          </StackPanel>
+
+          <HeaderedContentControl Grid.Column="1" Theme="{StaticResource RetroPanel}" Header="SYSTEM" MinWidth="300" VerticalAlignment="Center">
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+              <TextBlock Grid.Row="0" Text="NODE ........ " Classes="dim" />
+              <TextBlock Grid.Row="0" Grid.Column="1" Text="EGGNET/1 [ONLiNE]" Classes="ok" />
+              <TextBlock Grid.Row="1" Text="REPOS ....... " Classes="dim" />
+              <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding StatRepos}" Classes="hi" />
+              <TextBlock Grid.Row="2" Text="FiLES ....... " Classes="dim" />
+              <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding StatFiles}" Classes="hi" />
+              <TextBlock Grid.Row="3" Text="ARCHiVE ..... " Classes="dim" />
+              <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding StatSize}" Classes="hi" />
+              <TextBlock Grid.Row="4" Text="API LiMiT ... " Classes="dim" />
+              <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding StatApi}" Classes="accent" />
+              <TextBlock Grid.Row="5" Text="FiLTERS ..... " Classes="dim" />
+              <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding StatFilter}" Classes="accent2" TextTrimming="CharacterEllipsis" MaxWidth="200" />
+            </Grid>
+          </HeaderedContentControl>
+        </Grid>
+
+        <!-- ══════ 2: target panel ══════ -->
+        <HeaderedContentControl Grid.Row="2" Theme="{StaticResource RetroPanel}" Header="TARGET" Margin="14,4,14,0">
+          <Grid ColumnDefinitions="Auto,2*,Auto,16,Auto,3*,Auto" RowDefinitions="Auto,Auto" >
+            <TextBlock Grid.Column="0" Text="REPO ►" Classes="label" Margin="0,0,8,0" />
+            <TextBox Grid.Column="1" Text="{Binding RepoInput}" Watermark="owner/repo or paste a github.com URL" />
+            <Button Grid.Column="2" Content="+ ADD" Command="{Binding AddRepoCommand}" Margin="6,0,0,0" ToolTip.Tip="Add to the tracked list" />
+
+            <TextBlock Grid.Column="4" Text="ROOT ►" Classes="label" Margin="0,0,8,0" />
+            <TextBox Grid.Column="5" Name="FolderBox" Text="{Binding RootFolder}" Watermark="root download folder (drop a folder here)"
+                     LostFocus="OnFolderLostFocus" />
+            <Button Grid.Column="6" Content="BROWSE" Command="{Binding BrowseFolderCommand}" Margin="6,0,0,0" />
+
+            <StackPanel Grid.Row="1" Grid.ColumnSpan="7" Orientation="Horizontal" Spacing="24" Margin="0,8,0,0">
+              <CheckBox Content="only download new/changed/missing assets" IsChecked="{Binding SkipExisting}" />
+              <CheckBox Content="auto-update all repos" IsChecked="{Binding AutoUpdateEnabled}" />
+              <TextBlock VerticalAlignment="Center" Classes="dim">
+                <Run Text="next run:" />
+                <Run Text="{Binding StatAuto}" Foreground="{DynamicResource AccentBrush}" />
+              </TextBlock>
+            </StackPanel>
+          </Grid>
+        </HeaderedContentControl>
+
+        <!-- ══════ 3: command bar ══════ -->
+        <WrapPanel Grid.Row="3" Margin="14,10,14,0" Orientation="Horizontal">
+          <Button Classes="hot" Content="[F5] UPDATE SELECTED" Command="{Binding UpdateSelectedCommand}" IsEnabled="{Binding IsIdle}" Margin="0,0,6,4" />
+          <Button Classes="hot" Content="[F6] UPDATE ALL" Command="{Binding UpdateAllCommand}" IsEnabled="{Binding IsIdle}" Margin="0,0,6,4" />
+          <Button Content="{Binding PauseLabel}" Command="{Binding TogglePauseCommand}" Margin="0,0,6,4" />
+          <Button Content="[F8] SAFE STOP" Command="{Binding SafeStopCommand}" Margin="0,0,6,4" />
+          <Button Classes="danger" Content="[F9] HARD STOP" Command="{Binding HardStopCommand}" Margin="0,0,18,4" />
+          <Button Content="[F3] FiLTERS" Command="{Binding OpenFiltersCommand}" Margin="0,0,6,4" />
+          <Button Content="[F2] SETUP" Command="{Binding OpenSettingsCommand}" Margin="0,0,6,4" />
+          <Button Content="[F1] NFO" Command="{Binding AboutCommand}" Margin="0,0,6,4" />
+        </WrapPanel>
+
+        <!-- ══════ 4: repos + transfers ══════ -->
+        <Grid Grid.Row="4" ColumnDefinitions="3*,6,2*" Margin="14,2,14,0">
+          <HeaderedContentControl Grid.Column="0" Theme="{StaticResource RetroPanel}" Header="TRACKED REPOS" Padding="4,10,4,4">
+            <Grid RowDefinitions="Auto,Auto,*">
+              <Grid Grid.Row="0" ColumnDefinitions="22,*,136,62,80,170,16" Margin="4,0,4,0">
+                <TextBlock Grid.Column="1" Text="REPOSiTORY" Classes="accent" />
+                <TextBlock Grid.Column="2" Text="LAST CHECKED" Classes="accent" />
+                <TextBlock Grid.Column="3" Text="FiLES" Classes="accent" TextAlignment="Right" Margin="0,0,10,0" />
+                <TextBlock Grid.Column="4" Text="SiZE" Classes="accent" TextAlignment="Right" Margin="0,0,10,0" />
+                <TextBlock Grid.Column="5" Text="LAST RESULT" Classes="accent" />
+              </Grid>
+              <TextBlock Grid.Row="1" Text="────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────"
+                         Classes="frame" TextTrimming="None" ClipToBounds="True" />
+              <ListBox Grid.Row="2" Name="RepoList" ItemsSource="{Binding Repos}" SelectedItem="{Binding SelectedRepo}"
+                       DoubleTapped="OnRepoDoubleTapped">
+                <ListBox.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="Update This Repo" Command="{Binding UpdateSelectedCommand}" />
+                    <MenuItem Header="Open on GitHub" Command="{Binding OpenOnGitHubCommand}" />
+                    <Separator />
+                    <MenuItem Header="Open Repo Folder" Command="{Binding OpenRepoFolderCommand}" />
+                    <MenuItem Header="Filters For This Repo..." Command="{Binding OpenRepoFiltersCommand}" />
+                    <Separator />
+                    <MenuItem Header="Force Hash Rescan" Command="{Binding HashRescanCommand}" />
+                    <MenuItem Header="Generate DAT File" Command="{Binding GenerateDatCommand}" />
+                    <MenuItem Header="Generate PDF Summary" Command="{Binding GeneratePdfCommand}" />
+                    <MenuItem Header="Cleanup Orphans" Command="{Binding CleanupOrphansCommand}" />
+                    <MenuItem Header="Scan Local Files (Rebuild Metadata)" Command="{Binding ScanLocalCommand}" />
+                    <Separator />
+                    <MenuItem Header="Remove From Tracker" Command="{Binding RemoveRepoCommand}" />
+                  </ContextMenu>
+                </ListBox.ContextMenu>
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:RepoRow">
+                    <Grid ColumnDefinitions="22,*,136,62,80,170,16">
+                      <TextBlock Grid.Column="0" Text="{Binding Glyph}" FontWeight="Bold"
+                                 Classes.ok="{Binding IsOk}" Classes.warn="{Binding IsChanged}"
+                                 Classes.err="{Binding IsFailed}" Classes.dim="{Binding IsUnchecked}" />
+                      <TextBlock Grid.Column="1" Text="{Binding Key}" Classes="hi" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="2" Text="{Binding LastChecked}" Classes="dim" />
+                      <TextBlock Grid.Column="3" Text="{Binding Files}" TextAlignment="Right" Margin="0,0,10,0" />
+                      <TextBlock Grid.Column="4" Text="{Binding Size}" TextAlignment="Right" Margin="0,0,10,0" />
+                      <TextBlock Grid.Column="5" Text="{Binding LastResult}" TextTrimming="CharacterEllipsis"
+                                 Classes.ok="{Binding IsOk}" Classes.warn="{Binding IsChanged}"
+                                 Classes.err="{Binding IsFailed}" Classes.dim="{Binding IsUnchecked}" />
+                      <TextBlock Grid.Column="6" Text="{Binding FilterGlyph}" Classes="accent2" ToolTip.Tip="has per-repo filter rules" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Grid>
+          </HeaderedContentControl>
+
+          <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
+
+          <HeaderedContentControl Grid.Column="2" Theme="{StaticResource RetroPanel}" Header="DCC TRANSFERS" Padding="6,10,6,4">
+            <Grid>
+              <StackPanel IsVisible="{Binding NoTransfers}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="2">
+                <TextBlock Text="┌─────────────────────────────┐" Classes="frame" />
+                <TextBlock Text="│   no active transfers ...   │" Classes="dim" />
+                <TextBlock Classes="frame">
+                  <Run Text="│   waiting for carrier" /><Run Text="_" Foreground="{DynamicResource HiBrush}" /><Run Text="      │" />
+                </TextBlock>
+                <TextBlock Text="└─────────────────────────────┘" Classes="frame" />
+              </StackPanel>
+              <ListBox ItemsSource="{Binding Transfers}" IsVisible="{Binding !NoTransfers}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:TransferItem">
+                    <StackPanel Margin="0,2,0,4">
+                      <TextBlock TextTrimming="CharacterEllipsis">
+                        <Run Text="▼ DCC GET " Foreground="{DynamicResource Accent2Brush}" />
+                        <Run Text="{Binding Name}" Foreground="{DynamicResource HiBrush}" />
+                      </TextBlock>
+                      <TextBlock>
+                        <Run Text="  " />
+                        <Run Text="{Binding Bar}" Foreground="{DynamicResource AccentBrush}" />
+                        <Run Text=" " />
+                        <Run Text="{Binding Pct}" Foreground="{DynamicResource HiBrush}" />
+                        <Run Text="  " />
+                        <Run Text="{Binding Speed}" Foreground="{DynamicResource OkBrush}" />
+                        <Run Text="  " />
+                        <Run Text="{Binding Eta}" Foreground="{DynamicResource DimBrush}" />
+                      </TextBlock>
+                      <TextBlock Classes="dim" Text="{Binding Tag, StringFormat='  tag: {0}'}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Grid>
+          </HeaderedContentControl>
+        </Grid>
+
+        <GridSplitter Grid.Row="5" ResizeDirection="Rows" Margin="14,0" />
+
+        <!-- ══════ 6: IRC-style activity log ══════ -->
+        <HeaderedContentControl Grid.Row="6" Theme="{StaticResource RetroPanel}" Header="#releases" Margin="14,0,14,0" Padding="6,10,6,4">
+          <ListBox Name="LogList" ItemsSource="{Binding Log}">
+            <ListBox.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="Copy Log To Clipboard" Click="OnCopyLog" />
+                <MenuItem Header="Clear Log" Command="{Binding ClearLogCommand}" />
+              </ContextMenu>
+            </ListBox.ContextMenu>
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:LogLine">
+                <TextBlock TextWrapping="NoWrap"
+                           Classes.err="{Binding IsErr}" Classes.ok="{Binding IsOk}"
+                           Classes.warn="{Binding IsWarn}" Classes.accent="{Binding IsSys}">
+                  <Run Text="{Binding Time}" Foreground="{DynamicResource DimBrush}" />
+                  <Run Text=" │ " Foreground="{DynamicResource FrameBrush}" />
+                  <Run Text="{Binding Prefix}" Foreground="{DynamicResource Accent2Brush}" />
+                  <Run Text=" " />
+                  <Run Text="{Binding Text}" />
+                </TextBlock>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </HeaderedContentControl>
+
+        <!-- ══════ 7: progress ══════ -->
+        <Grid Grid.Row="7" ColumnDefinitions="Auto,Auto,Auto,*" Margin="16,8,16,0">
+          <TextBlock Grid.Column="0" Text="PROGRESS " Classes="accent" />
+          <TextBlock Grid.Column="1">
+            <Run Text="[" Foreground="{DynamicResource FrameHiBrush}" /><Run Text="{Binding ProgressBar}" Foreground="{DynamicResource AccentBrush}" /><Run Text="]" Foreground="{DynamicResource FrameHiBrush}" />
+          </TextBlock>
+          <TextBlock Grid.Column="2" Text="{Binding ProgressPct}" Classes="hi" Margin="8,0" MinWidth="56" />
+          <TextBlock Grid.Column="3" Text="{Binding CountsText}" Classes="dim" TextTrimming="CharacterEllipsis" />
+        </Grid>
+
+        <!-- ══════ 8: status line ══════ -->
+        <StackPanel Grid.Row="8" Orientation="Horizontal" Margin="16,4,16,0">
+          <TextBlock Text="C:\EGGNET&gt; " Classes="ok" />
+          <TextBlock Text="{Binding StatusText}" Classes="hi" Classes.blink="{Binding IsFlashing}" TextTrimming="CharacterEllipsis" />
+          <TextBlock Text="_" Classes="hi blink" />
+        </StackPanel>
+
+        <!-- ══════ 9: irssi-style status bar ══════ -->
+        <Border Grid.Row="9" Background="{DynamicResource SelBgBrush}" Margin="0,6,0,0" Padding="10,2">
+          <TextBlock Foreground="{DynamicResource SelFgBrush}" TextTrimming="CharacterEllipsis">
+            <Run Text="[" /><Run Text="{Binding Clock}" /><Run Text="] [sysop(+o)] [#releases(+nt)] [repos: " /><Run Text="{Binding StatRepos}" /><Run Text="] [api: " /><Run Text="{Binding StatApi}" /><Run Text="] [auto: " /><Run Text="{Binding StatAuto}" /><Run Text="] [" /><Run Text="{Binding RunGlyph}" FontWeight="Bold" /><Run Text="]" />
+          </TextBlock>
+        </Border>
+
+        <!-- ══════ 10: cracktro scroller ══════ -->
+        <ui:Marquee Grid.Row="10" Text="{Binding ScrollerText}" IsVisible="{Binding ShowScroller}"
+                    Foreground="{DynamicResource Accent2Brush}" FontFamily="{DynamicResource MonoFont}"
+                    FontSize="{DynamicResource BaseFontSize}" Margin="0,2,0,3" />
+      </Grid>
+
+      <ui:ScanlineOverlay LineBrush="{DynamicResource ScanlineBrush}" IsVisible="{Binding ShowScanlines}" />
+    </Grid>
+  </Border>
+</Window>

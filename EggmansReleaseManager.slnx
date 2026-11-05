@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/EggmansReleaseManager/EggmansReleaseManager.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/EggmansReleaseManager.Tests/EggmansReleaseManager.Tests.csproj" />
+  </Folder>
+</Solution>

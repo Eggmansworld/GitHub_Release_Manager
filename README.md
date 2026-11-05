@@ -16,66 +16,76 @@ this just isn't the project for you. No hard feelings; feel free to move along.
 
 # Eggman's GitHub Release Manager
 
-A multi-repo GitHub release downloader with metadata tracking, incremental updates, hash verification, auto-update scheduling, Discord notifications, and export utilities including RomVault DATs, PDF/TXT summaries, and CSV/JSON metadata. Built with Python + Tkinter. Supports optional drag-and-drop and PDF generation.
+A multi-repo GitHub release downloader with metadata tracking, incremental updates, hash verification, platform filtering, auto-update scheduling, Discord notifications, and export utilities including RomVault DATs, PDF summaries and CSV/JSON metadata.
 
-![Application Screenshot](https://github.com/user-attachments/assets/ec60b770-87ca-49e9-a079-607c6138e764)
+**v4** is a ground-up rewrite in **C# / .NET 10 + Avalonia**, with a BBS / warez-scene / IRC-inspired interface: ANSI-shadow logo, double-line frames, `[■]` checkboxes, a "DCC TRANSFERS" panel, an irssi-style log and status bar, CRT scanlines and a cracktro scroller. It reads the v3 (Python) config and repo database unchanged, so an upgrade picks up exactly where v3 left off.
+
+![Main window](docs/main_ansi.png)
 
 ---
 
-## General Features
+## What's new in v4
 
-- Track multiple GitHub repositories at once
-- **Incremental downloading** — only missing or changed assets are fetched, with resume support via HTTP Range requests
-- Multi-threaded downloads with adjustable thread count
-- **GitHub API token support** — anonymous access is capped at 60 requests/hour; a token raises this to 5,000/hour
-- Export a tracked repo's file structure and hash info to a **RomVault-compatible XML DAT file** (the primary reason this app exists — for routine preservation and collection management via RomVault)
-- Full **SHA-1 hashing** for integrity checks; **CRC32** is also computed when generating DAT files
-- **Auto-update mode** — update all repos on a configurable timer (minimum 5 minutes)
-- Per-repo and batch updates
-- Automatic folder organization — one folder per repo, release tags become subfolders
-- Metadata stored as JSON per repo, with additional CSV/JSON logs in a dedicated `_metadata` folder
-- Optional **Discord webhook** notifications for update results
-- Real-time **Activity Log** panel with color-coded output
-- Modern dark UI theme with orange highlights
+- **Platform filters**: skip release assets you don't collect (Linux, macOS, Android, ARM builds, checksums, source archives…). Set them globally, per repo, or both, and preview them against a repo's real releases before saving. See [Platform Filters](#platform-filters).
+- **Filter cleanup**: after you change the rules, files already in your archive that now match can be sent to the Recycle Bin or moved aside.
+- **Dial-up handshake on startup**: a synthesized modem handshake (dial tone, DTMF for 1-800-EGG-BBS, answer tone, V.34 training hiss) plays while the AT commands scroll by. Switch it off, or play it on demand with *♪ DiAL NOW*, in SETUP.
+- **New look**: four colour schemes (ANSi Classic, Amber Terminal, Green Phosphor, ACiD Trip) with a live preview, a configurable font, and CRT and scroller effects you can switch off.
+- **Single portable exe**: no Python, pip or batch files. Config and DB still live next to the exe.
+- **Keyboard driven**: F5 update selected · F6 update all · F7 pause · F8 safe stop · F9 hard stop · F3 filters · F2 setup · F1 nfo
+- **Live transfer view**: per-file progress, speed and ETA for every download thread, plus an overall byte-based progress bar
+- **API rate-limit meter** in the SYSTEM box and status bar, with clear rate-limit, 404 and bad-token messages
+- **Safer storage**: the repo DB is written atomically (temp file + replace), and an unreadable DB is kept as `*.corrupt_<time>` instead of being overwritten
+- **Fixes over v3**:
+  - `release_notes.txt` is no longer treated as an orphan or indexed as an asset
+  - DAT entries are XML-escaped and CRC32 is streamed instead of loading the whole file into RAM
+  - release notes are only rewritten when they change
+  - files already on disk but missing from the DB are hashed into the DB
+  - a run stopped with Safe Stop still records the files that finished
+  - one fewer API call per repo
 
 ---
 
 ## Requirements
 
-Python 3.10+ recommended (tested on 3.13).
+- Windows 10/11 x64
+- [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (or the SDK)
 
-```
-pip install requests
-pip install tkinterdnd2   # optional — drag-and-drop folder support
-pip install reportlab     # optional — PDF summaries; falls back to TXT if missing
-```
+Recommended font: **Cascadia Mono** (ships with Windows 11). For the full DOS look, install *Px437 IBM VGA 8x16* from the [Ultimate Oldschool PC Font Pack](https://int10h.org/oldschool-pc-fonts/) and put it first in **SETUP → FONT FAMiLY**.
 
 ---
 
-## Running the Program
+## Running
+
+Download the release zip, unpack it anywhere and run `Eggmans_GitHub_Release_Manager.exe`.
+
+- The app is fully portable. Its config, DB and logs sit next to the exe, so you can move the folder and it picks up where it left off.
+- **Upgrading from v3:** unpack into your existing folder. The v3 `*_config.json`, `*_repos.json` and `tracked_repos.txt` are read as-is. The old `.pyw` and batch files are no longer needed.
+
+### Building from source
 
 ```
-python "Eggmans_GitHub_Release_Manager.py"
+dotnet build
+dotnet test --project tests/EggmansReleaseManager.Tests
+.\publish.ps1            # test, publish, zip, then unpack into C:\Utilities\Eggmans_GitHub_Release_Manager
+.\publish.ps1 -NoDeploy  # just produce artifacts\Eggmans_GitHub_Release_Manager_v<ver>_win-x64.zip
 ```
 
-**Tips:**
-- Place the script somewhere static and use the included batch files as shortcuts
-- Set up a dedicated, static root download folder for your repos
-- The app is fully portable — move it anywhere and it picks up where it left off
+`publish.ps1` backs up the target folder's config, DB and tracked list to `_backup\<timestamp>\` before unpacking. It never overwrites them, because they aren't in the zip.
 
 ---
 
 ## Config Files
 
-Both files are stored alongside the script and created automatically on first run.
+All of these are stored next to the exe and created automatically on first run.
 
 | File | Contents |
 |---|---|
-| `Eggmans_GitHub_Release_Manager_config.json` | Root folder, webhook URL, API token, thread count, auto-update settings |
-| `Eggmans_GitHub_Release_Manager_repos.json` | Per-repo metadata: last_checked, last_result, asset hashes, sizes, and paths |
-| `tracked_repos.txt` | Plain list of tracked repos, updated automatically |
+| `Eggmans_GitHub_Release_Manager_config.json` | Root folder, webhook URL, API token, thread count, auto-update settings, **filters**, theme/font/effects, window size |
+| `Eggmans_GitHub_Release_Manager_repos.json` | Per-repo metadata: last_checked, last_result, asset hashes, sizes, and paths (same format as v3) |
+| `tracked_repos.txt` | Plain list of tracked repos, updated automatically. Repos added here by hand are merged in on startup |
+| `_logs\session_YYYY-MM-DD.log` | Copy of the activity log |
 
-Deleting these files is safe — they regenerate after re-adding repos and rescanning or re-downloading.
+> **Keep the config file out of git.** It contains your GitHub token and Discord webhook in plain text. The included `.gitignore` already excludes it.
 
 ---
 
@@ -85,160 +95,152 @@ Deleting these files is safe — they regenerate after re-adding repos and resca
 <root_download_folder>\
     owner_repo\
         <tag1>\
+            asset files...
+            release_notes.txt
         <tag2>\
-        ...
         orphans\
     _metadata\
-        json\
-        csv\
-        dat\
-        pdf\
-        logs\
+        json\  csv\  dat\  pdf\  logs\
 ```
 
 - All metadata (JSON/CSV/DAT/PDF/TXT) is stored under `_metadata`, separate from downloaded files
 - Legacy metadata found in the root folder is migrated automatically
-- JSON/CSV files are regenerated if missing when rebuilding metadata
 - All timestamps use UTC in the format `YYYY-MM-DD_HH_MM_SSZ`
+
+---
+
+## Platform Filters
+
+GitHub has no "platform" field on release assets, so v4 works it out from the **filename**. The name is lower-cased, `x86_64`/`amd64` become `x64`, and it is split into words:
+
+```
+lichii-linux-x86_64-pgo.AppImage  ->  lichii · linux · x64 · pgo · appimage   =>  LiNUX
+lichii-macos-arm64.dmg            ->  lichii · macos · arm64 · dmg              =>  MacOS + ARM
+NSP-Box-v4.0.0-Windows-x64.zip    ->  ... windows ...                           =>  WiNDOWS
+DiskImageTool_1.18.0.1.zip        ->  (nothing recognised)                      =>  universal, always kept
+```
+
+| Tag | Kind | Recognised by |
+|---|---|---|
+| WiNDOWS | OS | win, win32/64, windows, msvc, mingw, `.exe .msi .msix .appx` |
+| LiNUX | OS | linux, ubuntu, debian, fedora, musl, steamdeck, `.AppImage .deb .rpm .flatpak .snap .zsync .pkg.tar.zst` |
+| MacOS | OS | mac, macos, osx, darwin, universal2, `.dmg .pkg` |
+| ANDROiD | OS | android, `.apk .aab` |
+| iOS | OS | ios, iphone, ipad, `.ipa` |
+| *BSD | OS | freebsd, openbsd, netbsd |
+| ARM / x86 (32-bit) / RiSC-V | ARCH | arm64, aarch64, armv7 · x86, i386, i686 · riscv64 |
+| SOURCE / CHECKSUMS / DEBUG | KiND | src, source · SHA256SUMS, `.sha256 .sig .asc` · pdb, dsym, symbols |
+
+**How a decision is made** (in this order):
+
+1. **ALWAYS GET patterns**: a match is always downloaded and beats every skip rule.
+2. **SKIP patterns**: a match is skipped.
+3. **Tags**:
+   - OS and ARCH: an asset is skipped only when *all* of its OS (or ARCH) tags are ticked, so `app-win-linux.zip` survives a LiNUX skip.
+   - KiND: an asset is skipped if *any* of its KiND tags is ticked.
+
+Patterns are case-insensitive globs (`*` = anything, `?` = one character). A pattern without a wildcard means "contains", and the prefix `re:` makes it a regular expression, e.g. `re:-pgo\.(zip|tar\.gz)$`.
+
+**Scopes**: open **FiLTER CONTROL** (F3, or right-click a repo → *Filters For This Repo*).
+
+- **GLOBAL rules** apply to every repo.
+- A repo can have **custom rules**. By default these are added on top of the global rules. Untick *also apply GLOBAL rules* to give that repo its own rules only (e.g. you skip Linux everywhere but want it for one repo).
+- **TEST A FiLENAME** shows the verdict for any name as you type.
+- **LiVE PREViEW** fetches the repo's newest 100 releases (one API call) and lists every asset as GET or SKIP, with the reason.
+
+**Cleaning up what you already have**: when you save rules, the app checks your archive for files that the rules would now skip and asks what to do:
+
+- **RECYCLE BIN** sends them to the Windows Recycle Bin, so you can undo it.
+- **MOVE TO _filtered** moves them to `owner_repo\_filtered\<tag>\`.
+- **LEAVE THEM** keeps everything as it is.
+
+Cleaned files are removed from the repo DB, and tag folders left holding only `release_notes.txt` are removed. You can run the same check any time from **TOOLS → Clean Up Filtered Files**. The `orphans` and `_filtered` folders are never scanned.
+
+A release whose assets are all filtered out gets no folder. The Last Result column reports how many assets were filtered (e.g. `Up to date (140 filtered)`).
+
+![Filter control](docs/filters_ansi.png)
 
 ---
 
 ## Dashboard Usage
 
-### 1. Adding a Repo
+1. **Add a repo**: type `owner/repo` or paste any GitHub URL (it converts automatically), then **+ ADD**.
+2. **Set a root folder**: type it, use **BROWSE**, or drop a folder onto the box. Everything downloads to `root/owner_repo/tag/asset.ext`.
+3. **Update one repo**: select it and press **F5**, or right-click → *Update This Repo*.
+4. **Update all repos**: press **F6**. Repos are processed oldest-checked first.
 
-Enter `owner/repo` in the GitHub repo box, or paste a full GitHub URL — it converts automatically.
-
-```
-Eggmansworld/Datfiles
-https://github.com/Eggmansworld/Datfiles
-```
-
-Click **Add Repo** to add it to the Tracked Repos list.
-
-### 2. Set a Root Download Folder
-
-All repos download into subfolders here:
-
-```
-root_folder/owner_repo/tag/asset.ext
-```
-
-### 3. Updating a Repo
-
-Select it in the Tracked Repos list and click **Update Selected Repo**, or right-click and choose **Update This Repo**.
-
-### 4. Updating All Repos
-
-Click **Update ALL Repos**. Repos are processed in oldest-checked-first order.
-
-### 5. Treeview Controls
-
-| Action | Result |
+| Action on the repo list | Result |
 |---|---|
-| Double-click | Open repo folder in Explorer |
-| Right-click | Context menu (see below) |
+| Click | Selects the repo (fills the REPO box) |
+| Double-click | Opens the repo folder in Explorer |
+| Right-click | Update · Open on GitHub · Open Folder · Filters · Hash Rescan · DAT · PDF · Orphans · Scan Local · Remove |
 
-**Right-click context menu:**
-- Update This Repo
-- Open on GitHub
-- Open Repo Folder
-- Force Hash Rescan
-- Generate DAT File
-- Generate PDF Summary
-- Cleanup Orphans
-- Scan Local Files (Rebuild Metadata)
-- Remove From Tracker
-
-### 6. Tracked Repos Dashboard Colors
-
-| Color | Meaning |
+| Glyph / colour | Meaning |
 |---|---|
-| Green | Up to date |
-| Orange | Assets downloaded (changes found) |
-| Red | One or more failed downloads |
-| Yellow | Not yet checked |
+| `■` green | Up to date |
+| `▲` yellow | Assets downloaded (changes found) |
+| `×` red | One or more failed downloads, or an API error |
+| `·` grey | Not yet checked |
+| `ƒ` | Repo has its own filter rules |
 
 ---
 
-## Controls & Buttons
+## Controls
 
-| Button | Action |
+| Key / Button | Action |
 |---|---|
-| **Update Selected Repo** | Fetch and download assets for the selected repo |
-| **Update ALL Repos** | Batch update all tracked repos |
-| **Pause / Resume** | Suspend and resume active downloads |
-| **Safe Stop** | Finish current downloads, skip remaining |
-| **Hard Stop** | Abort all threads immediately |
+| **F5** UPDATE SELECTED | Fetch and download assets for the repo in the REPO box |
+| **F6** UPDATE ALL | Batch update all tracked repos |
+| **F7** PAUSE / RESUME | Suspend and resume active downloads |
+| **F8** SAFE STOP | Finish current downloads, skip the rest (finished files are still recorded) |
+| **F9** HARD STOP | Abort immediately; partial files are kept and resumed next time |
+| **F3** FiLTERS | Filter control |
+| **F2** SETUP | Threads, auto-update, token, webhook, colour scheme, font, effects |
+| **F1** NFO | About |
 
 ---
 
 ## Export & Maintenance Tools
 
-### Generate DAT
-Produces a RomVault-compatible XML `.dat` file. Game name = release tag. Handles nested files via relative paths. CRC32 and SHA-1 included per file.
-
-### Generate PDF Summary
-Requires `reportlab`. Falls back to a `.txt` file if not installed.
-
-### Export DB
-Saves the repos JSON database to a location of your choice for backup.
-
-### Orphan Cleanup
-Finds files in the repo folder not listed in metadata and moves them to `owner_repo/orphans/`.
-
-### Force Hash Rescan
-Recomputes SHA-1 for all known assets and updates the metadata database.
-
-### Scan Local Files (Rebuild Metadata)
-Indexes existing files on disk using top-level subfolders as release tags. Recreates missing JSON/CSV metadata files automatically.
+- **Generate DAT**: RomVault-compatible XML `.dat`. Game name = release tag; nested files keep their relative path. CRC32 and SHA-1 are included per file, and CRCs are cached in the DB after the first run.
+- **Generate PDF Summary**: a per-repo listing of tag / file / size / SHA-1. Built in, so nothing extra to install.
+- **Export DB**: saves the repos JSON database to a location of your choice.
+- **Cleanup Orphans**: moves files not listed in the metadata to `owner_repo/orphans/`. You see a preview and confirm first, and `release_notes.txt` is ignored.
+- **Force Hash Rescan**: recomputes SHA-1 for every known asset, in the background.
+- **Scan Local Files**: indexes existing files using top-level subfolders as tags, and recreates missing JSON/CSV metadata.
 
 ---
 
 ## GitHub API Token
-
-A token is recommended if you track many repos or use auto-update frequently.
 
 | Access | Rate Limit |
 |---|---|
 | Anonymous | 60 requests/hour |
 | Authenticated (token) | 5,000 requests/hour |
 
-**To generate a token:**
-Go to [https://github.com/settings/tokens/new](https://github.com/settings/tokens/new) and choose **Personal access token (classic)**. You do not need to check any scopes — a zero-scope token is sufficient for public repos.
+To create a token, go to [github.com/settings/tokens/new](https://github.com/settings/tokens/new) and choose a **Personal access token (classic)**. No scopes are needed for public repos. Paste it into **SETUP → GiTHUB TOKEN**.
 
-Paste the token into the **GitHub token** field in the app. It saves to config automatically.
-
-> **Note:** If you ever add private repos, you would need the `repo` scope at that point.
+The SYSTEM box shows your remaining API calls after every request.
 
 ---
 
-## Discord Notifications
+## Discord Notifications & Auto-Update
 
-Enter a webhook URL in the Discord webhook field. After each update the tool sends:
+- **Discord**: put a webhook URL in SETUP. After each repo update it posts `repo: update finished — OK=xx, failed=yy`.
+- **Auto-update**: tick *auto-update all repos* and set the interval in SETUP (minimum 5 minutes). The next run time shows in the TARGET panel and the status bar. Auto runs log their results instead of popping up a dialog.
+
+---
+
+## Project Layout
 
 ```
-repo_name: update finished — OK=xx, failed=yy
+src/EggmansReleaseManager/      the app (Avalonia, MVVM via CommunityToolkit.Mvvm)
+  Services/                     GitHub API, downloader, filters, DAT/PDF/CSV export, maintenance
+  ViewModels/  Views/  Themes/  UI/
+tests/EggmansReleaseManager.Tests/   xUnit tests (filters on real asset names, v3 file compatibility, DAT/PDF, planning)
+legacy/python/                  the v3 Python/Tkinter version, kept for reference
+publish.ps1                     test → publish → zip → deploy
 ```
-
----
-
-## Auto-Update Mode
-
-When enabled, the tool runs a full multi-repo update on a timer:
-- Minimum interval: 5 minutes
-- Scans all repos, downloads updates, logs activity, and sends Discord notifications
-- Runs quietly in the background
-
-> **Warning:** Avoid excessively short update intervals. If you see rate-limit errors in the Activity Log, increase your interval. Anonymous access is 60 requests/hour — use a token if you need more headroom.
-
----
-
-## Notes
-
-- Private repos are not currently supported
-- DAT exports are suitable for RomVault; compatibility with other managers may vary
-- PDF support requires `reportlab`; TXT fallback is always available
 
 ---
 
@@ -256,4 +258,4 @@ See the `LICENSE` and `NOTICE` files for full details and scope clarification.
 
 Created for the preservation community by Eggman, with Claude's help turning ideas into code.
 
-If you improve the script, feel free to share your changes back with the community.
+If you improve it, feel free to share your changes back with the community.
