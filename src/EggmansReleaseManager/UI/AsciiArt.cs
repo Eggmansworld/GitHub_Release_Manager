@@ -35,12 +35,20 @@ public static class AsciiArt
 
     public static readonly string[] ScrollerLines =
     [
-        "··· EGGMAN'S GiTHUB RELEASE MANAGER v4.0 ··· now running on .NET + Avalonia ···",
+        "··· EGGMAN'S GiTHUB RELEASE MANAGER v4 ··· now running on .NET + Avalonia ··· dial 1-800-EGG-MAN1 ···",
         "PRESERVATiON iS NOT A CRiME ··· tag your releases, devs, we're watching (and archiving) ···",
         "greetz fly out to: the RomVault crew ·:· every preservationist with a bigger drive than sense ·:· all devs who ship windows builds ···",
         "F5 = update selected ·:· F6 = update ALL ·:· F3 = filter control ·:· F2 = sysop setup ·:· F1 = nfo ···",
-        "remember: star the repos you archive ··· support the coders ··· no lamers allowed on this node ···",
+        "remember: star the repos you archive ··· support the coders ··· no lamers allowed on this node ··· ratio is 1:3, keep racing ···",
     ];
+
+    /// <summary>Joins scroller messages with the classic wide gaps; null/empty falls back to the built-in greetz.</summary>
+    public static string ScrollerJoin(IEnumerable<string>? custom)
+    {
+        var lines = (custom ?? []).Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+        if (lines.Count == 0) lines = [.. ScrollerLines];
+        return string.Join("          ", lines) + "          ";
+    }
 
     public const string Nfo = """
         ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
@@ -55,7 +63,7 @@ public static class AsciiArt
            CODE .......... Claude
            TYPE .......... Utility / Archival
            PLATFORM ...... Windows / .NET + Avalonia
-           VERSiON ....... 4.0
+           VERSiON ....... 4.x
            PROTECTiON .... None. It's MIT licensed.
            DiSKS ......... 1 (portable, lives next to its config)
 

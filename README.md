@@ -28,7 +28,9 @@ A multi-repo GitHub release downloader with metadata tracking, incremental updat
 
 - **Platform filters**: skip release assets you don't collect (Linux, macOS, Android, ARM builds, checksums, source archives…). Set them globally, per repo, or both, and preview them against a repo's real releases before saving. See [Platform Filters](#platform-filters).
 - **Filter cleanup**: after you change the rules, files already in your archive that now match can be sent to the Recycle Bin or moved aside.
-- **Dial-up handshake on startup**: a synthesized modem handshake (dial tone, DTMF for 1-800-EGG-BBS, answer tone, V.34 training hiss) plays while the AT commands scroll by. Switch it off, or play it on demand with *♪ DiAL NOW*, in SETUP.
+- **Dial-up handshake on startup**: a real 56k-era handshake recording plays while the AT commands scroll by in time with it: dial tone, DTMF dialing 1-800-EGG-MAN1 (1-800-344-6261), ringing, V.8 negotiation, the 2100 Hz answer tone, line probing, V.34 training and CONNECT. Switch it off, or play it on demand with *♪ DiAL NOW*, in SETUP.
+- **1:3 ratio box**: a topsite-style USER iNFO panel. Your archive is the site: every byte you race in counts as UP and earns 3 bytes of credit, and every byte pulled from GitHub (re-downloads included) counts as DN. Your class (NEWBiE → USER → ViP → ELiTE → SiTEOP → LEGEND) goes up with the size of your archive, and each finished update logs its race stats.
+- **Your own greetz**: edit the cracktro scroller in SETUP. Each line is one message; *RESTORE DEFAULT GREETZ* brings back the stock ones.
 - **New look**: four colour schemes (ANSi Classic, Amber Terminal, Green Phosphor, ACiD Trip) with a live preview, a configurable font, and CRT and scroller effects you can switch off.
 - **Single portable exe**: no Python, pip or batch files. Config and DB still live next to the exe.
 - **Keyboard driven**: F5 update selected · F6 update all · F7 pause · F8 safe stop · F9 hard stop · F3 filters · F2 setup · F1 nfo

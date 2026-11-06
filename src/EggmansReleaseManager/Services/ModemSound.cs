@@ -6,27 +6,19 @@ namespace EggmansReleaseManager.Services;
 public sealed record ModemCue(TimeSpan At, string Text);
 
 /// <summary>
-/// Synthesizes a dial-up modem handshake (no audio files shipped): off-hook dial tone, DTMF dialing,
-/// ringback, the 2100 Hz answer tone with phase reversals, V.8/V.21 FSK chirps and the V.34-style
-/// QAM training hiss. Output is a 16-bit mono WAV in memory, played with winmm PlaySound.
+/// The dial-up handshake: a real 56k-era recording (Assets/handshake.wav, built by tools/make_handshake.py,
+/// which swaps in DTMF digits for <see cref="Number"/>), played with winmm PlaySound, plus the AT-command
+/// log lines timed to what you hear.
 /// </summary>
 public static class ModemSound
 {
     public const int SampleRate = 22050;
-    public const string Number = "1-800-EGG-BBS";
+    public const string Number = "1-800-EGG-MAN1";
 
     /// <summary>Set by tools/tests to keep things quiet.</summary>
     public static bool Muted { get; set; }
 
-    private static readonly Dictionary<char, (double Low, double High)> Dtmf = new()
-    {
-        ['1'] = (697, 1209), ['2'] = (697, 1336), ['3'] = (697, 1477),
-        ['4'] = (770, 1209), ['5'] = (770, 1336), ['6'] = (770, 1477),
-        ['7'] = (852, 1209), ['8'] = (852, 1336), ['9'] = (852, 1477),
-        ['0'] = (941, 1336), ['*'] = (941, 1209), ['#'] = (941, 1477),
-    };
-
-    /// <summary>Phone keypad letters -> digits, so 1-800-EGG-BBS dials 18003443227.</summary>
+    /// <summary>Phone keypad letters -> digits, so 1-800-EGG-MAN1 dials 18003446261.</summary>
     public static string ToDigits(string number) => new(number.ToUpperInvariant().Select(c => c switch
     {
         >= '0' and <= '9' => c,
@@ -36,164 +28,45 @@ public static class ModemSound
         _ => '\0',
     }).Where(c => c != '\0').ToArray());
 
-    public static (byte[] Wav, IReadOnlyList<ModemCue> Cues) Build(int seed = 1987)
+    /// <summary>"1-800-344-6261" style, for the log.</summary>
+    public static string Pretty(string number)
     {
-        var s = new List<float>(SampleRate * 14);
-        var cues = new List<ModemCue>();
-        var rng = new Random(seed);
-        TimeSpan Now() => TimeSpan.FromSeconds(s.Count / (double)SampleRate);
-        void Cue(string text) => cues.Add(new ModemCue(Now(), text));
-
-        Cue("ATZ");
-        Silence(s, 0.25);
-        Cue("OK");
-        Cue("ATX4DT " + Number);
-        Tones(s, 0.9, 0.22, 350, 440);                 // dial tone
-        Silence(s, 0.15);
-        foreach (var d in ToDigits(Number))
-        {
-            var (lo, hi) = Dtmf[d];
-            Tones(s, 0.085, 0.3, lo, hi);
-            Silence(s, 0.065);
-        }
-        Silence(s, 0.5);
-        Cue("RINGING");
-        Tones(s, 1.4, 0.18, 440, 480);                 // ringback
-        Silence(s, 0.55);
-        Cue("ANSWER 2100Hz / V.8 negotiation");
-        AnswerTone(s, 1.9, 0.33);
-        Silence(s, 0.08);
-        Fsk(s, rng, 0.55, 0.28, 980, 1180, 300);       // calling modem, V.21 ch1
-        Fsk(s, rng, 0.45, 0.28, 1650, 1850, 300);      // answering modem, V.21 ch2
-        Silence(s, 0.06);
-        Cue("TRAiNiNG V.34 ...");
-        Tones(s, 0.55, 0.24, 1200, 2400);              // the "bong"
-        Silence(s, 0.04);
-        Screech(s, rng, 1.25, 0.3);
-        Silence(s, 0.03);
-        Qam(s, rng, 2.1, 0.26, 1800, 2400);            // the hiss
-        Qam(s, rng, 0.6, 0.18, 1959, 2743);
-        Cue("CONNECT 28800/ARQ/V34/LAPM/V42BIS");
-        Silence(s, 0.2);
-
-        return (ToWav(s), cues);
+        var d = ToDigits(number);
+        return d.Length == 11 ? $"{d[0]}-{d[1..4]}-{d[4..7]}-{d[7..]}" : d;
     }
 
-    // ───────── synth building blocks ─────────
+    // Where each stage starts in the recording (seconds).
+    private static readonly (double At, string Text)[] Timeline =
+    [
+        (0.00, "ATZ"),
+        (0.12, "OK"),
+        (0.30, "ATX4DT " + Number),
+        (0.80, "DiALiNG " + Pretty(Number) + " ..."),
+        (3.00, "RiNGiNG"),
+        (5.10, "ANSWER · V.8bis handshake"),
+        (8.90, "2100Hz ANSam tone"),
+        (11.00, "V.8 CM/JM negotiation · V.21 FSK"),
+        (12.20, "LiNE PROBiNG ..."),
+        (13.70, "TRAiNiNG V.34 equalizer ..."),
+        (16.20, "TRAiNiNG echo canceller ..."),
+        (20.40, "FiNAL RATE NEGOTiATiON ..."),
+        (22.70, "CONNECT 33600/ARQ/V34/LAPM/V42BIS"),
+    ];
 
-    private static void Silence(List<float> s, double sec) => s.AddRange(new float[(int)(sec * SampleRate)]);
+    private static byte[]? _wav;
 
-    private static void Tones(List<float> s, double sec, double amp, params double[] freqs)
+    public static (byte[] Wav, IReadOnlyList<ModemCue> Cues) Build()
     {
-        var n = (int)(sec * SampleRate);
-        var start = s.Count;
-        for (var i = 0; i < n; i++)
-        {
-            var t = i / (double)SampleRate;
-            var v = freqs.Sum(f => Math.Sin(2 * Math.PI * f * t)) / freqs.Length;
-            s.Add((float)(v * amp));
-        }
-        Fade(s, start, n);
+        _wav ??= LoadAsset();
+        return (_wav, Timeline.Select(t => new ModemCue(TimeSpan.FromSeconds(t.At), t.Text)).ToList());
     }
 
-    /// <summary>ITU-T V.25 answer tone: 2100 Hz with a 180° phase reversal every 450 ms (the "clicks").</summary>
-    private static void AnswerTone(List<float> s, double sec, double amp)
+    private static byte[] LoadAsset()
     {
-        var n = (int)(sec * SampleRate);
-        var start = s.Count;
-        for (var i = 0; i < n; i++)
-        {
-            var t = i / (double)SampleRate;
-            var flip = (int)(t / 0.45) % 2 == 0 ? 0 : Math.PI;
-            s.Add((float)(Math.Sin(2 * Math.PI * 2100 * t + flip) * amp));
-        }
-        Fade(s, start, n);
-    }
-
-    /// <summary>Binary FSK with continuous phase, random data.</summary>
-    private static void Fsk(List<float> s, Random rng, double sec, double amp, double mark, double space, int baud)
-    {
-        var n = (int)(sec * SampleRate);
-        var start = s.Count;
-        var perBit = SampleRate / baud;
-        double phase = 0, f = mark;
-        for (var i = 0; i < n; i++)
-        {
-            if (i % perBit == 0) f = rng.Next(2) == 0 ? mark : space;
-            phase += 2 * Math.PI * f / SampleRate;
-            s.Add((float)(Math.Sin(phase) * amp));
-        }
-        Fade(s, start, n);
-    }
-
-    /// <summary>Line probing: chirpy multi-tone sweeps plus noise, the harsh middle part.</summary>
-    private static void Screech(List<float> s, Random rng, double sec, double amp)
-    {
-        var n = (int)(sec * SampleRate);
-        var start = s.Count;
-        double p1 = 0, p2 = 0, lp = 0;
-        for (var i = 0; i < n; i++)
-        {
-            var t = i / (double)SampleRate;
-            var f1 = 600 + 2600 * (0.5 + 0.5 * Math.Sin(2 * Math.PI * 3.1 * t));
-            var f2 = 3000 - 1800 * (t / sec);
-            p1 += 2 * Math.PI * f1 / SampleRate;
-            p2 += 2 * Math.PI * f2 / SampleRate;
-            lp += 0.35 * ((rng.NextDouble() * 2 - 1) - lp);       // softened noise
-            var v = 0.45 * Math.Sin(p1) + 0.3 * Math.Sign(Math.Sin(p2)) * 0.6 + 0.5 * lp;
-            s.Add((float)(Math.Clamp(v, -1, 1) * amp));
-        }
-        Fade(s, start, n);
-    }
-
-    /// <summary>Random-symbol QAM on a carrier: sounds exactly like the classic broadband hiss.</summary>
-    private static void Qam(List<float> s, Random rng, double sec, double amp, double carrier, double baud)
-    {
-        var n = (int)(sec * SampleRate);
-        var start = s.Count;
-        double i0 = 1, q0 = 0, iT = 1, qT = 0;
-        var perSym = SampleRate / baud;
-        double next = 0;
-        int[] levels = [-3, -1, 1, 3];
-        for (var k = 0; k < n; k++)
-        {
-            if (k >= next)
-            {
-                next += perSym;
-                iT = levels[rng.Next(4)] / 3.0;
-                qT = levels[rng.Next(4)] / 3.0;
-            }
-            i0 += 0.6 * (iT - i0);   // a little pulse shaping
-            q0 += 0.6 * (qT - q0);
-            var t = k / (double)SampleRate;
-            var v = i0 * Math.Cos(2 * Math.PI * carrier * t) - q0 * Math.Sin(2 * Math.PI * carrier * t);
-            s.Add((float)(v * 0.7 * amp));
-        }
-        Fade(s, start, n);
-    }
-
-    private static void Fade(List<float> s, int start, int n, double ms = 6)
-    {
-        var f = Math.Min((int)(ms / 1000 * SampleRate), n / 2);
-        for (var i = 0; i < f; i++)
-        {
-            var g = i / (float)f;
-            s[start + i] *= g;
-            s[start + n - 1 - i] *= g;
-        }
-    }
-
-    private static byte[] ToWav(List<float> samples)
-    {
-        var data = samples.Count * 2;
-        using var ms = new MemoryStream(44 + data);
-        using var w = new BinaryWriter(ms);
-        w.Write("RIFF"u8); w.Write(36 + data); w.Write("WAVE"u8);
-        w.Write("fmt "u8); w.Write(16); w.Write((short)1); w.Write((short)1);
-        w.Write(SampleRate); w.Write(SampleRate * 2); w.Write((short)2); w.Write((short)16);
-        w.Write("data"u8); w.Write(data);
-        foreach (var v in samples) w.Write((short)Math.Round(Math.Clamp(v, -1f, 1f) * 32000));
-        w.Flush();
+        using var s = typeof(ModemSound).Assembly.GetManifestResourceStream("EggmansReleaseManager.handshake.wav")
+                      ?? throw new InvalidOperationException("handshake.wav resource missing");
+        using var ms = new MemoryStream((int)s.Length);
+        s.CopyTo(ms);
         return ms.ToArray();
     }
 
