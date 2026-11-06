@@ -70,6 +70,66 @@ public static class ModemSound
         return ms.ToArray();
     }
 
+    // ───────── little sound effects (synthesized) ─────────
+
+    private static byte[]? _zmodem, _noCarrier;
+
+    /// <summary>The terminal-program "transfer complete" beeps (three rising tones).</summary>
+    public static byte[] ZmodemBeep() => _zmodem ??= Synth(s =>
+    {
+        foreach (var f in new[] { 880.0, 1175.0, 1568.0 })
+        {
+            var n = (int)(0.09 * SampleRate);
+            for (var i = 0; i < n; i++)
+            {
+                var t = i / (double)SampleRate;
+                var env = Math.Min(1, Math.Min(i, n - i) / (0.004 * SampleRate));
+                // a slightly square PC-speaker edge
+                s.Add((float)(0.22 * env * Math.Tanh(3 * Math.Sin(2 * Math.PI * f * t))));
+            }
+            s.AddRange(new float[(int)(0.035 * SampleRate)]);
+        }
+    });
+
+    /// <summary>Hang-up: line hiss, the hook relay clunk, then dead air.</summary>
+    public static byte[] NoCarrier() => _noCarrier ??= Synth(s =>
+    {
+        var rng = new Random(1994);
+        double lp = 0;
+        var hiss = (int)(0.28 * SampleRate);
+        for (var i = 0; i < hiss; i++)
+        {
+            lp += 0.3 * ((rng.NextDouble() * 2 - 1) - lp);
+            var t = i / (double)SampleRate;
+            var carrier = 0.5 * Math.Sin(2 * Math.PI * 1800 * t) * Math.Sin(2 * Math.PI * 2400 * t);
+            s.Add((float)(0.16 * (lp + 0.4 * carrier) * Math.Min(1, i / (0.01 * SampleRate))));
+        }
+        var clunk = (int)(0.16 * SampleRate);
+        for (var i = 0; i < clunk; i++)
+        {
+            var t = i / (double)SampleRate;
+            var click = i < 40 ? (rng.NextDouble() * 2 - 1) * (1 - i / 40.0) : 0;
+            s.Add((float)(0.5 * Math.Exp(-t * 38) * Math.Sin(2 * Math.PI * 95 * t) + 0.35 * click));
+        }
+        s.AddRange(new float[(int)(0.12 * SampleRate)]);
+    });
+
+    private static byte[] Synth(Action<List<float>> build)
+    {
+        var s = new List<float>();
+        build(s);
+        var data = s.Count * 2;
+        using var ms = new MemoryStream(44 + data);
+        using var w = new BinaryWriter(ms);
+        w.Write("RIFF"u8); w.Write(36 + data); w.Write("WAVE"u8);
+        w.Write("fmt "u8); w.Write(16); w.Write((short)1); w.Write((short)1);
+        w.Write(SampleRate); w.Write(SampleRate * 2); w.Write((short)2); w.Write((short)16);
+        w.Write("data"u8); w.Write(data);
+        foreach (var v in s) w.Write((short)Math.Round(Math.Clamp(v, -1f, 1f) * 32000));
+        w.Flush();
+        return ms.ToArray();
+    }
+
     // ───────── playback (Windows) ─────────
 
     private const uint SND_ASYNC = 0x0001, SND_NODEFAULT = 0x0002, SND_MEMORY = 0x0004;
@@ -79,15 +139,15 @@ public static class ModemSound
 
     private static GCHandle _pinned; // the buffer must stay put while Windows plays it asynchronously
 
-    /// <summary>Starts playback without blocking. Returns false if sound isn't available.</summary>
-    public static bool Play(byte[] wav)
+    /// <summary>Starts playback (async unless <paramref name="wait"/>). Returns false if sound isn't available.</summary>
+    public static bool Play(byte[] wav, bool wait = false)
     {
         if (Muted || !OperatingSystem.IsWindows()) return false;
         try
         {
             Stop();
             _pinned = GCHandle.Alloc(wav, GCHandleType.Pinned);
-            return PlaySound(_pinned.AddrOfPinnedObject(), IntPtr.Zero, SND_MEMORY | SND_ASYNC | SND_NODEFAULT);
+            return PlaySound(_pinned.AddrOfPinnedObject(), IntPtr.Zero, SND_MEMORY | SND_NODEFAULT | (wait ? 0 : SND_ASYNC));
         }
         catch
         {

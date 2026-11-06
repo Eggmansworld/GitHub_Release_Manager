@@ -30,6 +30,10 @@ public sealed class RepoInfo
     /// <summary>tag -> asset filename -> metadata</summary>
     public Dictionary<string, Dictionary<string, AssetMeta>> Assets { get; set; } = new();
 
+    /// <summary>Assets skipped by the filters on the last check ("nukes").</summary>
+    public int NukedFiles { get; set; }
+    public long NukedBytes { get; set; }
+
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? Extra { get; set; }
 

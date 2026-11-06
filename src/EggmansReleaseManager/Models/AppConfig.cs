@@ -26,6 +26,15 @@ public sealed class AppConfig
     public bool CrtScanlines { get; set; } = true;
     public bool Scroller { get; set; } = true;
     public bool ModemIntro { get; set; } = true;
+
+    /// <summary>Your BBS handle (max 30 chars, like WWIV). Empty = Windows user name.</summary>
+    public string Username { get; set; } = "";
+    /// <summary>ZMODEM beep when downloads finish, NO CARRIER hang-up on exit.</summary>
+    public bool SoundEffects { get; set; } = true;
+    /// <summary>Write a FILE_ID.DIZ into each release folder.</summary>
+    public bool WriteDiz { get; set; } = true;
+    /// <summary>Run the UI text through the 31337 translator.</summary>
+    public bool LeetSpeak { get; set; }
     public double WindowWidth { get; set; } = 1280;
     public double WindowHeight { get; set; } = 860;
 

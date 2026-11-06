@@ -11,7 +11,7 @@ public sealed class GitHubException(string message) : Exception(message);
 
 public static class GitHubApi
 {
-    public const string UserAgent = "Eggman-GitHub-ReleaseManager/4.1";
+    public const string UserAgent = "Eggman-GitHub-ReleaseManager/4.2";
 
     /// <summary>Shared client for API calls and downloads (redirects to the CDN are followed).</summary>
     public static readonly HttpClient Http = CreateClient();
