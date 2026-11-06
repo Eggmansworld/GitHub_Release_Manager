@@ -80,16 +80,46 @@
         </Grid>
 
         <!-- ══════ 1: logo header + system box ══════ -->
-        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="14,8,14,0">
-          <StackPanel Grid.Column="0" VerticalAlignment="Center">
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="14,8,14,0">
+          <Viewbox Grid.Column="0" StretchDirection="DownOnly" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,10,0">
+          <StackPanel>
             <TextBlock Text="{Binding Logo}" Foreground="{DynamicResource LogoBrush}" FontSize="15" LineHeight="17" />
             <StackPanel Orientation="Horizontal" Margin="2,4,0,0" Spacing="10">
               <TextBlock Text="{Binding Tagline}" Classes="accent2" />
               <TextBlock Text="// .NET + Avalonia ediTiON" Classes="dim" />
             </StackPanel>
           </StackPanel>
+          </Viewbox>
 
-          <HeaderedContentControl Grid.Column="1" Theme="{StaticResource RetroPanel}" Header="SYSTEM" MinWidth="300" VerticalAlignment="Center">
+          <!-- topsite-style user info: your archive is the site, every byte raced in earns 3 in credit -->
+          <HeaderedContentControl Grid.Column="1" Theme="{StaticResource RetroPanel}" Margin="0,0,10,0" VerticalAlignment="Center"
+                                  ToolTip.Tip="Ratio 1:3 - every byte you archive (UP) earns 3 bytes of credit; every byte pulled from GitHub (DN, re-downloads too) spends one. Class goes up with the size of your archive.">
+            <HeaderedContentControl.Header>
+              <TextBlock><Run Text="USER iNFO " /><Run Text="·" Foreground="{DynamicResource FrameHiBrush}" /><Run Text=" RATiO " /><Run Text="{Binding RatioDisplay}" Foreground="{DynamicResource HiBrush}" /></TextBlock>
+            </HeaderedContentControl.Header>
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+              <TextBlock Grid.Row="0" Text="USER ....... " Classes="dim" />
+              <TextBlock Grid.Row="0" Grid.Column="1">
+                <Run Text="{Binding RatioUser}" Foreground="{DynamicResource HiBrush}" /><Run Text=" [" Foreground="{DynamicResource FrameHiBrush}" /><Run Text="{Binding RatioClass}" Foreground="{DynamicResource Accent2Brush}" FontWeight="Bold" /><Run Text="]" Foreground="{DynamicResource FrameHiBrush}" />
+              </TextBlock>
+              <TextBlock Grid.Row="1" Text="UP ......... " Classes="dim" />
+              <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding RatioUp}" Classes="ok" />
+              <TextBlock Grid.Row="2" Text="DN ......... " Classes="dim" />
+              <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding RatioDown}" Classes="warn" />
+              <TextBlock Grid.Row="3" Text="RATiO ...... " Classes="dim" />
+              <TextBlock Grid.Row="3" Grid.Column="1" Classes="hi" FontWeight="Bold" Classes.blink="{Binding RatioLeech}">
+                <Run Text="{Binding RatioDisplay}" /><Run Text="  (UL 1 = 3 CR)" Foreground="{DynamicResource DimBrush}" FontWeight="Normal" />
+              </TextBlock>
+              <TextBlock Grid.Row="4" Text="CREDiTS .... " Classes="dim" />
+              <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding RatioCredits}" Classes="accent" Classes.err="{Binding RatioLeech}" />
+              <TextBlock Grid.Row="5" Text="NEXT CLASS . " Classes="dim" />
+              <TextBlock Grid.Row="5" Grid.Column="1">
+                <Run Text="{Binding RatioBar}" Foreground="{DynamicResource Accent2Brush}" /><Run Text=" " /><Run Text="{Binding RatioNext}" Foreground="{DynamicResource AccentBrush}" />
+              </TextBlock>
+            </Grid>
+          </HeaderedContentControl>
+
+          <HeaderedContentControl Grid.Column="2" Theme="{StaticResource RetroPanel}" Header="SYSTEM" MinWidth="300" VerticalAlignment="Center">
             <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
               <TextBlock Grid.Row="0" Text="NODE ........ " Classes="dim" />
               <TextBlock Grid.Row="0" Grid.Column="1" Text="EGGNET/1 [ONLiNE]" Classes="ok" />
@@ -243,7 +273,7 @@
                 </TextBlock>
                 <TextBlock Text="└─────────────────────────────┘" Classes="frame" />
               </StackPanel>
-              <ListBox ItemsSource="{Binding Transfers}" IsVisible="{Binding !NoTransfers}">
+              <ListBox ItemsSource="{Binding Transfers}" IsVisible="{Binding !NoTransfers}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="vm:TransferItem">
                     <StackPanel Margin="0,2,0,4">
@@ -251,7 +281,7 @@
                         <Run Text="▼ DCC GET " Foreground="{DynamicResource Accent2Brush}" />
                         <Run Text="{Binding Name}" Foreground="{DynamicResource HiBrush}" />
                       </TextBlock>
-                      <TextBlock>
+                      <TextBlock TextTrimming="CharacterEllipsis">
                         <Run Text="  " />
                         <Run Text="{Binding Bar}" Foreground="{DynamicResource AccentBrush}" />
                         <Run Text=" " />
@@ -317,7 +347,7 @@
         <!-- ══════ 9: irssi-style status bar ══════ -->
         <Border Grid.Row="9" Background="{DynamicResource SelBgBrush}" Margin="0,6,0,0" Padding="10,2">
           <TextBlock Foreground="{DynamicResource SelFgBrush}" TextTrimming="CharacterEllipsis">
-            <Run Text="[" /><Run Text="{Binding Clock}" /><Run Text="] [sysop(+o)] [#releases(+nt)] [repos: " /><Run Text="{Binding StatRepos}" /><Run Text="] [api: " /><Run Text="{Binding StatApi}" /><Run Text="] [auto: " /><Run Text="{Binding StatAuto}" /><Run Text="] [" /><Run Text="{Binding RunGlyph}" FontWeight="Bold" /><Run Text="]" />
+            <Run Text="[" /><Run Text="{Binding Clock}" /><Run Text="] [sysop(+o)] [#releases(+nt)] [repos: " /><Run Text="{Binding StatRepos}" /><Run Text="] [api: " /><Run Text="{Binding StatApi}" /><Run Text="] [auto: " /><Run Text="{Binding StatAuto}" /><Run Text="] [ratio " /><Run Text="{Binding RatioDisplay}" /><Run Text=" cr: " /><Run Text="{Binding RatioCredits}" /><Run Text="] [" /><Run Text="{Binding RunGlyph}" FontWeight="Bold" /><Run Text="]" />
           </TextBlock>
         </Border>
 

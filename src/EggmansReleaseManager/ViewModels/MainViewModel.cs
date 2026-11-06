@@ -31,10 +31,10 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly Dictionary<DownloadJob, TransferItem> _transferMap = new();
     private RunState? _run;
 
-    public string Version => "v4.0";
+    public string Version { get; } = "v" + (typeof(MainViewModel).Assembly.GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "4");
     public string Logo => AsciiArt.Logo;
     public string Tagline => AsciiArt.Tagline;
-    public string ScrollerText => string.Join("          ", AsciiArt.ScrollerLines) + "          ";
+    public string ScrollerText => AsciiArt.ScrollerJoin(_cfg.ScrollerText);
 
     public ObservableCollection<RepoRow> Repos { get; } = [];
     public ObservableCollection<TransferItem> Transfers { get; } = [];
@@ -63,6 +63,17 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _statAuto = "OFF";
     [ObservableProperty] private string _statFilter = "none";
     [ObservableProperty] private string _clock = "";
+
+    // 1:3 ratio box
+    public string RatioUser { get; } = Environment.UserName.ToLowerInvariant();
+    public string RatioDisplay => Ratio.Display;
+    [ObservableProperty] private string _ratioClass = "";
+    [ObservableProperty] private string _ratioUp = "";
+    [ObservableProperty] private string _ratioDown = "";
+    [ObservableProperty] private string _ratioCredits = "";
+    [ObservableProperty] private bool _ratioLeech;
+    [ObservableProperty] private string _ratioBar = "";
+    [ObservableProperty] private string _ratioNext = "";
 
     [ObservableProperty] private bool _showScanlines;
     [ObservableProperty] private bool _showScroller;
@@ -97,6 +108,17 @@ public sealed partial class MainViewModel : ObservableObject
         _autoUpdateEnabled = cfg.AutoUpdateEnabled;
         _showScanlines = cfg.CrtScanlines;
         _showScroller = cfg.Scroller;
+        if (cfg.Stats is null)
+        {
+            // first run with the ratio box: count what's already archived as downloaded once
+            cfg.Stats = new UserStats
+            {
+                DownloadedBytes = _db.Repos.Values.Sum(r => r.TotalBytes),
+                DownloadedFiles = _db.Repos.Values.Sum(r => r.FileCount),
+                Since = Stamp.Now(),
+            };
+            Stores.SaveConfig(cfg);
+        }
         if (string.IsNullOrWhiteSpace(_repoInput)) _repoInput = _db.Repos.Keys.OrderBy(k => k, StringComparer.Ordinal).FirstOrDefault() ?? "";
 
         Transfers.CollectionChanged += (_, _) => OnPropertyChanged(nameof(NoTransfers));
@@ -220,6 +242,25 @@ public sealed partial class MainViewModel : ObservableObject
             : "OFF";
     }
 
+    // ═══════════════════════════ ratio ═══════════════════════════
+
+    private void UpdateRatio()
+    {
+        var up = _db.Repos.Values.Sum(r => r.TotalBytes);
+        var upFiles = _db.Repos.Values.Sum(r => r.FileCount);
+        var st = _cfg.Stats ??= new UserStats { Since = Stamp.Now() };
+        var credits = Ratio.Credits(up, st.DownloadedBytes);
+        var (cls, next, progress) = Ratio.Rank(up);
+
+        RatioClass = cls.Name;
+        RatioUp = $"{Fmt.BytesOrZero(up)} ({upFiles.ToString("N0", CultureInfo.InvariantCulture)}f)";
+        RatioDown = $"{Fmt.BytesOrZero(st.DownloadedBytes)} ({st.DownloadedFiles.ToString("N0", CultureInfo.InvariantCulture)}f)";
+        RatioLeech = credits < 0;
+        RatioCredits = credits < 0 ? $"-{Fmt.BytesOrZero(-credits)}  LEECH!" : Fmt.BytesOrZero(credits);
+        RatioBar = Fmt.Bar(progress, 10);
+        RatioNext = next is null ? "MAXED" : next.Name;
+    }
+
     // ═══════════════════════════ persistence ═══════════════════════════
 
     private void SaveConfig()
@@ -292,6 +333,7 @@ public sealed partial class MainViewModel : ObservableObject
         StatRepos = _db.Repos.Count.ToString(CultureInfo.InvariantCulture);
         StatFiles = _db.Repos.Values.Sum(r => r.FileCount).ToString("N0", CultureInfo.InvariantCulture);
         StatSize = Fmt.Bytes(_db.Repos.Values.Sum(r => r.TotalBytes)) is { Length: > 0 } s ? s : "0 B";
+        UpdateRatio();
         var g = _cfg.Filters.Global;
         var parts = new List<string>();
         if (g.ExcludePlatforms.Count > 0) parts.Add("-" + string.Join(" -", g.ExcludePlatforms));
@@ -631,6 +673,12 @@ public sealed partial class MainViewModel : ObservableObject
         foreach (var r in run.Records.Where(r => !r.Success))
             AddLog($"  FAILED {r.Tag}/{r.Name}: {r.Error}", LogKind.Err);
 
+        var raced = run.Records.Where(r => r.Success).Sum(r => r.SizeBytes);
+        if (raced > 0)
+        {
+            SaveConfig(); // lifetime DN counter
+            AddLog($"RACE: {repo} +{Fmt.Bytes(raced)} UP -> +{Fmt.Bytes(raced * Ratio.Multiplier)} credits @ {Ratio.Display} · class {RatioClass}", LogKind.Sys);
+        }
         Status($"{repo}: downloads {(stopped ? "stopped" : "finished")}. OK={ok}, Failed={failed}");
         AddLog($"{repo}: update finished — OK={ok}, failed={failed}", failed > 0 ? LogKind.Err : LogKind.Ok);
         _ = GitHubApi.SendDiscordAsync(_cfg.DiscordWebhook, $"{repo}: update finished — OK={ok}, failed={failed}");
@@ -686,10 +734,12 @@ public sealed partial class MainViewModel : ObservableObject
                     DownloadedAt = Stamp.Now(),
                 };
                 SaveDbSoon();
+                if (_cfg.Stats is { } st) { st.DownloadedBytes += r.Job.Asset.Size; st.DownloadedFiles++; }
                 AddLog($"{r.Job.Tag}/{r.Job.Asset.Name} saved ({Fmt.Bytes(r.Job.Asset.Size)})", LogKind.Ok);
             }
         }
         UpdateProgress();
+        UpdateRatio();
     }
 
     private void UpdateProgress()
@@ -1014,6 +1064,7 @@ public sealed partial class MainViewModel : ObservableObject
         ThemeManager.Apply(_cfg.Theme, _cfg.FontFamily, _cfg.FontSize);
         ShowScanlines = _cfg.CrtScanlines;
         ShowScroller = _cfg.Scroller;
+        OnPropertyChanged(nameof(ScrollerText));
         if (AutoUpdateEnabled != _cfg.AutoUpdateEnabled) AutoUpdateEnabled = _cfg.AutoUpdateEnabled; // triggers reschedule
         else ScheduleAutoUpdate();
         AddLog("Sysop setup saved.", LogKind.Ok);

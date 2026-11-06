@@ -121,6 +121,8 @@ public static class Fmt
     }
 
     /// <summary>ASCII/ANSI progress bar: ██████░░░░</summary>
+    public static string BytesOrZero(long b) => Bytes(b) is { Length: > 0 } s ? s : "0 B";
+
     public static string Bar(double fraction, int cells)
     {
         fraction = Math.Clamp(double.IsNaN(fraction) ? 0 : fraction, 0, 1);

@@ -11,7 +11,7 @@
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-    <Version>4.0.1</Version>
+    <Version>4.1.0</Version>
     <Product>Eggman's GitHub Release Manager</Product>
     <Authors>Eggman</Authors>
     <Copyright>MIT License</Copyright>
@@ -25,7 +25,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <AvaloniaResource Include="Assets\**" />
+    <AvaloniaResource Include="Assets\**" Exclude="Assets\*.wav" />
+    <EmbeddedResource Include="Assets\handshake.wav" LogicalName="EggmansReleaseManager.handshake.wav" />
   </ItemGroup>
 
   <ItemGroup>

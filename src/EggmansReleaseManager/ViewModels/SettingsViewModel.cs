@@ -27,6 +27,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _crtScanlines;
     [ObservableProperty] private bool _scroller;
     [ObservableProperty] private bool _modemIntro;
+    [ObservableProperty] private string _scrollerText;
 
     public List<ThemeChoice> Themes { get; }
     public string SelectedThemeId { get; private set; }
@@ -43,6 +44,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _crtScanlines = c.CrtScanlines;
         _scroller = c.Scroller;
         _modemIntro = c.ModemIntro;
+        _scrollerText = string.Join(Environment.NewLine, c.ScrollerText is { Count: > 0 } custom ? custom : AsciiArt.ScrollerLines);
         SelectedThemeId = ThemeManager.Get(c.Theme).Id;
 
         Themes = ThemeManager.Palettes.Select(p => new ThemeChoice
@@ -68,6 +70,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     [CommunityToolkit.Mvvm.Input.RelayCommand]
     private static void TestDial() => Services.ModemSound.Play(Services.ModemSound.Build().Wav);
 
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void ResetScroller() => ScrollerText = string.Join(Environment.NewLine, AsciiArt.ScrollerLines);
+
+    /// <summary>One scroller message per non-blank line.</summary>
+    public static List<string> SplitLines(string text) =>
+        text.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+
     public char TokenChar => RevealToken ? '\0' : '•';
     partial void OnRevealTokenChanged(bool value) => OnPropertyChanged(nameof(TokenChar));
 
@@ -84,5 +93,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         c.CrtScanlines = CrtScanlines;
         c.Scroller = Scroller;
         c.ModemIntro = ModemIntro;
+        var lines = SplitLines(ScrollerText);
+        // matching the built-in greetz (or empty) stores null, so future default updates still show up
+        c.ScrollerText = lines.Count == 0 || lines.SequenceEqual(AsciiArt.ScrollerLines) ? null : lines;
     }
 }

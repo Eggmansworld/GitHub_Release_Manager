@@ -64,7 +64,7 @@ public sealed partial class TransferItem : ObservableObject
     public long Total => Job.Asset.Size;
 
     [ObservableProperty] private long _downloaded;
-    [ObservableProperty] private string _bar = Fmt.Bar(0, 24);
+    [ObservableProperty] private string _bar = Fmt.Bar(0, 20);
     [ObservableProperty] private string _pct = "  0%";
     [ObservableProperty] private string _speed = "";
     [ObservableProperty] private string _eta = "";
@@ -73,7 +73,7 @@ public sealed partial class TransferItem : ObservableObject
     {
         Downloaded = downloaded;
         var f = Total > 0 ? downloaded / (double)Total : 0;
-        Bar = Fmt.Bar(f, 24);
+        Bar = Fmt.Bar(f, 20);
         Pct = $"{f * 100,3:0}%";
         Speed = speed > 0 ? Fmt.Speed(speed) : "hashing";
         Eta = speed > 0 ? "ETA " + Fmt.Eta(eta) : "";

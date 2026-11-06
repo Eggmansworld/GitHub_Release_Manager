@@ -71,10 +71,24 @@
                        Text="Comma-separated fallback list. For the full DOS look install 'Px437 IBM VGA 8x16' (int10h.org Oldschool PC Font Pack) and put it first." />
             <WrapPanel Margin="0,4,0,0">
               <CheckBox Content="CRT scanlines" IsChecked="{Binding CrtScanlines}" Margin="0,0,24,0" />
-              <CheckBox Content="cracktro scroller" IsChecked="{Binding Scroller}" Margin="0,0,24,0" />
               <CheckBox Content="modem handshake on startup (with sound)" IsChecked="{Binding ModemIntro}" Margin="0,0,10,0" />
               <Button Classes="flat" Content="[ ♪ DiAL NOW ]" Command="{Binding TestDialCommand}" ToolTip.Tip="Play the handshake" />
             </WrapPanel>
+          </StackPanel>
+        </HeaderedContentControl>
+
+        <HeaderedContentControl Theme="{StaticResource RetroPanel}" Header="CRACKTRO SCROLLER // GREETZ">
+          <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+              <CheckBox Content="show the scroller" IsChecked="{Binding Scroller}" />
+              <Button Grid.Column="1" Classes="flat" Content="[ RESTORE DEFAULT GREETZ ]" Command="{Binding ResetScrollerCommand}" />
+            </Grid>
+            <TextBox Name="ScrollerBox" Text="{Binding ScrollerText}" AcceptsReturn="True" TextWrapping="NoWrap"
+                     Height="112" VerticalContentAlignment="Top"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     Watermark="one message per line ..." />
+            <TextBlock Classes="dim" TextWrapping="Wrap"
+                       Text="One message per line - they scroll by in order, then loop. Shout out your crew, leave notes, drop greetz. Blank lines are ignored; leave it empty to get the stock greetz back." />
           </StackPanel>
         </HeaderedContentControl>
 

@@ -34,8 +34,22 @@ public sealed class AppConfig
 
     public FilterConfig Filters { get; set; } = new();
 
+    /// <summary>Custom cracktro scroller messages, one per entry. Null = the built-in greetz.</summary>
+    public List<string>? ScrollerText { get; set; }
+
+    /// <summary>Lifetime transfer counters for the 1:3 ratio box. Null until first run of v4.1.</summary>
+    public UserStats? Stats { get; set; }
+
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+public sealed class UserStats
+{
+    /// <summary>Bytes pulled down from GitHub, re-downloads included.</summary>
+    public long DownloadedBytes { get; set; }
+    public long DownloadedFiles { get; set; }
+    public string Since { get; set; } = "";
 }
 
 public sealed class FilterConfig
