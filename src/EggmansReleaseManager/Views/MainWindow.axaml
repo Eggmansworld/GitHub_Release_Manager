@@ -143,56 +143,92 @@
         </WrapPanel>
 
         <!-- ══════ 4: repos + transfers ══════ -->
-        <Grid Grid.Row="4" ColumnDefinitions="3*,6,2*" Margin="14,2,14,0">
+        <Grid Grid.Row="4" ColumnDefinitions="7*,6,4*" Margin="14,2,14,0">
           <HeaderedContentControl Grid.Column="0" Theme="{StaticResource RetroPanel}" Header="TRACKED REPOS" Padding="4,10,4,4">
-            <Grid RowDefinitions="Auto,Auto,*">
-              <Grid Grid.Row="0" ColumnDefinitions="22,*,136,62,80,170,16" Margin="4,0,4,0">
-                <TextBlock Grid.Column="1" Text="REPOSiTORY" Classes="accent" />
-                <TextBlock Grid.Column="2" Text="LAST CHECKED" Classes="accent" />
-                <TextBlock Grid.Column="3" Text="FiLES" Classes="accent" TextAlignment="Right" Margin="0,0,10,0" />
-                <TextBlock Grid.Column="4" Text="SiZE" Classes="accent" TextAlignment="Right" Margin="0,0,10,0" />
-                <TextBlock Grid.Column="5" Text="LAST RESULT" Classes="accent" />
-              </Grid>
-              <TextBlock Grid.Row="1" Text="────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────"
-                         Classes="frame" TextTrimming="None" ClipToBounds="True" />
-              <ListBox Grid.Row="2" Name="RepoList" ItemsSource="{Binding Repos}" SelectedItem="{Binding SelectedRepo}"
-                       DoubleTapped="OnRepoDoubleTapped">
-                <ListBox.ContextMenu>
-                  <ContextMenu>
-                    <MenuItem Header="Update This Repo" Command="{Binding UpdateSelectedCommand}" />
-                    <MenuItem Header="Open on GitHub" Command="{Binding OpenOnGitHubCommand}" />
-                    <Separator />
-                    <MenuItem Header="Open Repo Folder" Command="{Binding OpenRepoFolderCommand}" />
-                    <MenuItem Header="Filters For This Repo..." Command="{Binding OpenRepoFiltersCommand}" />
-                    <Separator />
-                    <MenuItem Header="Force Hash Rescan" Command="{Binding HashRescanCommand}" />
-                    <MenuItem Header="Generate DAT File" Command="{Binding GenerateDatCommand}" />
-                    <MenuItem Header="Generate PDF Summary" Command="{Binding GeneratePdfCommand}" />
-                    <MenuItem Header="Cleanup Orphans" Command="{Binding CleanupOrphansCommand}" />
-                    <MenuItem Header="Scan Local Files (Rebuild Metadata)" Command="{Binding ScanLocalCommand}" />
-                    <Separator />
-                    <MenuItem Header="Remove From Tracker" Command="{Binding RemoveRepoCommand}" />
-                  </ContextMenu>
-                </ListBox.ContextMenu>
-                <ListBox.ItemTemplate>
-                  <DataTemplate x:DataType="vm:RepoRow">
-                    <Grid ColumnDefinitions="22,*,136,62,80,170,16">
-                      <TextBlock Grid.Column="0" Text="{Binding Glyph}" FontWeight="Bold"
+            <!-- Columns are left-anchored, fixed-width and drag-resizable; nothing auto-shrinks and a horizontal
+                 scrollbar appears when they don't fit (a star column would make DataGrid squeeze the others).
+                 Widths persist in the config. -->
+            <DataGrid Name="RepoGrid" ItemsSource="{Binding Repos}" SelectedItem="{Binding SelectedRepo}"
+                      DoubleTapped="OnRepoDoubleTapped"
+                      IsReadOnly="True" SelectionMode="Single"
+                      CanUserResizeColumns="True" CanUserSortColumns="True" CanUserReorderColumns="False"
+                      HeadersVisibility="Column" GridLinesVisibility="None"
+                      HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                      RowHeight="22" ColumnHeaderHeight="24">
+              <DataGrid.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="Update This Repo" Command="{Binding UpdateSelectedCommand}" />
+                  <MenuItem Header="Open on GitHub" Command="{Binding OpenOnGitHubCommand}" />
+                  <Separator />
+                  <MenuItem Header="Open Repo Folder" Command="{Binding OpenRepoFolderCommand}" />
+                  <MenuItem Header="Filters For This Repo..." Command="{Binding OpenRepoFiltersCommand}" />
+                  <Separator />
+                  <MenuItem Header="Force Hash Rescan" Command="{Binding HashRescanCommand}" />
+                  <MenuItem Header="Generate DAT File" Command="{Binding GenerateDatCommand}" />
+                  <MenuItem Header="Generate PDF Summary" Command="{Binding GeneratePdfCommand}" />
+                  <MenuItem Header="Cleanup Orphans" Command="{Binding CleanupOrphansCommand}" />
+                  <MenuItem Header="Scan Local Files (Rebuild Metadata)" Command="{Binding ScanLocalCommand}" />
+                  <Separator />
+                  <MenuItem Header="Remove From Tracker" Command="{Binding RemoveRepoCommand}" />
+                </ContextMenu>
+              </DataGrid.ContextMenu>
+              <DataGrid.Columns>
+                <DataGridTemplateColumn Header=" " Tag="status" Width="24" CanUserResize="False" SortMemberPath="Status">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:RepoRow">
+                      <TextBlock Text="{Binding Glyph}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
                                  Classes.ok="{Binding IsOk}" Classes.warn="{Binding IsChanged}"
                                  Classes.err="{Binding IsFailed}" Classes.dim="{Binding IsUnchecked}" />
-                      <TextBlock Grid.Column="1" Text="{Binding Key}" Classes="hi" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Grid.Column="2" Text="{Binding LastChecked}" Classes="dim" />
-                      <TextBlock Grid.Column="3" Text="{Binding Files}" TextAlignment="Right" Margin="0,0,10,0" />
-                      <TextBlock Grid.Column="4" Text="{Binding Size}" TextAlignment="Right" Margin="0,0,10,0" />
-                      <TextBlock Grid.Column="5" Text="{Binding LastResult}" TextTrimming="CharacterEllipsis"
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="REPOSiTORY" Tag="repo" Width="200" MinWidth="80" SortMemberPath="Key">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:RepoRow">
+                      <TextBlock Text="{Binding Key}" Classes="hi cell" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Key}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="LAST CHECKED" Tag="checked" Width="140" MinWidth="60" SortMemberPath="LastChecked">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:RepoRow">
+                      <TextBlock Text="{Binding LastChecked}" Classes="dim cell" TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="FiLES" Tag="files" Width="58" MinWidth="40" SortMemberPath="FileCount">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:RepoRow">
+                      <TextBlock Text="{Binding Files}" Classes="cell" TextAlignment="Right" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="SiZE" Tag="size" Width="82" MinWidth="50" SortMemberPath="SizeBytes">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:RepoRow">
+                      <TextBlock Text="{Binding Size}" Classes="cell" TextAlignment="Right" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="ƒ" Tag="filter" Width="26" CanUserResize="False" SortMemberPath="HasFilter">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:RepoRow">
+                      <TextBlock Text="{Binding FilterGlyph}" Classes="accent2" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                 ToolTip.Tip="has per-repo filter rules" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="LAST RESULT" Tag="result" Width="240" MinWidth="80" SortMemberPath="LastResult">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:RepoRow">
+                      <TextBlock Text="{Binding LastResult}" Classes="cell" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding LastResult}"
                                  Classes.ok="{Binding IsOk}" Classes.warn="{Binding IsChanged}"
                                  Classes.err="{Binding IsFailed}" Classes.dim="{Binding IsUnchecked}" />
-                      <TextBlock Grid.Column="6" Text="{Binding FilterGlyph}" Classes="accent2" ToolTip.Tip="has per-repo filter rules" />
-                    </Grid>
-                  </DataTemplate>
-                </ListBox.ItemTemplate>
-              </ListBox>
-            </Grid>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+              </DataGrid.Columns>
+            </DataGrid>
           </HeaderedContentControl>
 
           <GridSplitter Grid.Column="1" ResizeDirection="Columns" />

@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using EggmansReleaseManager.UI;
 using EggmansReleaseManager.ViewModels;
 
@@ -29,14 +30,37 @@ public partial class MainWindow : Window, IUiHost
             {
                 var (w, h) = vm.WindowSize;
                 if (w >= MinWidth && h >= MinHeight) { Width = w; Height = h; }
+                RestoreRepoColumns(vm.RepoColumnWidths);
                 ScrollLogToEnd();
             }
         };
         Closing += (_, _) =>
         {
-            if (DataContext is MainViewModel vm && WindowState == WindowState.Normal)
-                vm.SaveWindowSize(Width, Height);
+            if (DataContext is not MainViewModel vm) return;
+            if (WindowState == WindowState.Normal) vm.SaveWindowSize(Width, Height);
+            SaveRepoColumns(vm.RepoColumnWidths);
         };
+    }
+
+    // ───────── Tracked Repos column widths (RepoGrid field is generated from x:Name) ─────────
+
+    private void RestoreRepoColumns(Dictionary<string, double> widths)
+    {
+        foreach (var col in RepoGrid.Columns)
+        {
+            if (col.Tag is not string id || !col.CanUserResize || col.Width.IsStar) continue;
+            if (widths.TryGetValue(id, out var w) && w >= col.MinWidth && w < 2000)
+                col.Width = new DataGridLength(w);
+        }
+    }
+
+    private void SaveRepoColumns(Dictionary<string, double> widths)
+    {
+        foreach (var col in RepoGrid.Columns)
+        {
+            if (col.Tag is not string id || !col.CanUserResize || col.Width.IsStar) continue;
+            if (col.ActualWidth > 0) widths[id] = Math.Round(col.ActualWidth);
+        }
     }
 
     private MainViewModel? Vm => DataContext as MainViewModel;
@@ -48,7 +72,12 @@ public partial class MainWindow : Window, IUiHost
     private void OnClose(object? s, RoutedEventArgs e) => Close();
 
     // ───────── repo list / folder box ─────────
-    private void OnRepoDoubleTapped(object? sender, TappedEventArgs e) => Vm?.OpenRepoFolderCommand.Execute(null);
+    private void OnRepoDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        // only rows open the folder - double-clicking a header/resize grip must not
+        if (e.Source is Visual v && v.FindAncestorOfType<DataGridRow>(includeSelf: true) is not null)
+            Vm?.OpenRepoFolderCommand.Execute(null);
+    }
 
     private void OnFolderLostFocus(object? sender, RoutedEventArgs e) => Vm?.CommitRootFolder();
 

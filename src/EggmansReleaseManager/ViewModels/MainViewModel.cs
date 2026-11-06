@@ -263,6 +263,8 @@ public sealed partial class MainViewModel : ObservableObject
 
     public (double W, double H) WindowSize => (_cfg.WindowWidth, _cfg.WindowHeight);
 
+    public Dictionary<string, double> RepoColumnWidths => _cfg.RepoColumnWidths;
+
     // ═══════════════════════════ dashboard ═══════════════════════════
 
     public void RefreshRepos()
@@ -278,6 +280,8 @@ public sealed partial class MainViewModel : ObservableObject
                 LastChecked = Stamp.Pretty(info.LastChecked),
                 Files = files > 0 ? files.ToString("N0", CultureInfo.InvariantCulture) : "",
                 Size = Fmt.Bytes(info.TotalBytes),
+                FileCount = files,
+                SizeBytes = info.TotalBytes,
                 LastResult = info.LastResult ?? "",
                 Status = RepoRow.StatusFrom(info.LastResult),
                 HasFilter = _cfg.Filters.Repos.Keys.Any(k => string.Equals(k, key, StringComparison.OrdinalIgnoreCase)),

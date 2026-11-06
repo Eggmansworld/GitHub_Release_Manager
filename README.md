@@ -172,6 +172,8 @@ A release whose assets are all filtered out gets no folder. The Last Result colu
 | Action on the repo list | Result |
 |---|---|
 | Click | Selects the repo (fills the REPO box) |
+| Drag a column edge | Resizes that column (widths are remembered); a horizontal scrollbar appears when they don't fit |
+| Click a column header | Sorts by that column |
 | Double-click | Opens the repo folder in Explorer |
 | Right-click | Update · Open on GitHub · Open Folder · Filters · Hash Rescan · DAT · PDF · Orphans · Scan Local · Remove |
 

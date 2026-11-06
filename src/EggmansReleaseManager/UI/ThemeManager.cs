@@ -142,6 +142,29 @@ public static class ThemeManager
         r["RepeatButtonForegroundPointerOver"] = B(p.SelFg);
         r["RepeatButtonBorderBrush"] = B(p.Frame);
 
+        // DataGrid (Tracked Repos)
+        r["DataGridColumnHeaderForegroundBrush"] = B(p.Accent);
+        r["DataGridColumnHeaderBackgroundBrush"] = B(p.Panel);
+        r["DataGridColumnHeaderHoveredBackgroundBrush"] = B(p.Frame);
+        r["DataGridColumnHeaderPressedBackgroundBrush"] = B(p.FrameHi);
+        r["DataGridColumnHeaderDraggedBackgroundBrush"] = B(p.Frame);
+        r["DataGridGridLinesBrush"] = B(p.Frame);
+        r["DataGridFillerColumnGridLinesBrush"] = Brushes.Transparent;
+        r["DataGridCellBackgroundBrush"] = Brushes.Transparent;
+        r["DataGridDetailsPresenterBackgroundBrush"] = B(p.Panel);
+        r["DataGridRowHoveredBackgroundColor"] = C(p.Frame);
+        r["DataGridRowSelectedBackgroundBrush"] = B(p.SelBg);
+        r["DataGridRowSelectedHoveredBackgroundBrush"] = B(p.SelBg);
+        r["DataGridRowSelectedUnfocusedBackgroundBrush"] = B(p.SelBg);
+        r["DataGridRowSelectedHoveredUnfocusedBackgroundBrush"] = B(p.SelBg);
+        r["DataGridRowSelectedBackgroundOpacity"] = 1.0;
+        r["DataGridRowSelectedHoveredBackgroundOpacity"] = 1.0;
+        r["DataGridRowSelectedUnfocusedBackgroundOpacity"] = 1.0;
+        r["DataGridRowSelectedHoveredUnfocusedBackgroundOpacity"] = 1.0;
+        r["DataGridCellFocusVisualPrimaryBrush"] = Brushes.Transparent;
+        r["DataGridCellFocusVisualSecondaryBrush"] = Brushes.Transparent;
+        r["DataGridSortIconForeground"] = B(p.Accent2);
+
         r["ControlCornerRadius"] = new CornerRadius(0);
         r["OverlayCornerRadius"] = new CornerRadius(0);
     }
