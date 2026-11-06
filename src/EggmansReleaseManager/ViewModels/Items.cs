@@ -15,6 +15,10 @@ public sealed class RepoRow
     public RepoStatus Status { get; init; }
     public bool HasFilter { get; init; }
 
+    // numeric sort keys for the grid (the display strings above are formatted)
+    public int FileCount { get; init; }
+    public long SizeBytes { get; init; }
+
     public string Glyph => Status switch
     {
         RepoStatus.UpToDate => "■",

@@ -13,6 +13,7 @@ public static class Stores
             cfg.Filters ??= new FilterConfig();
             cfg.Filters.Global ??= new FilterRule();
             cfg.Filters.Repos ??= new();
+            cfg.RepoColumnWidths ??= new();
             if (cfg.MaxThreads < 1) cfg.MaxThreads = 1;
             if (cfg.AutoUpdateInterval < 5) cfg.AutoUpdateInterval = 5;
             return cfg;

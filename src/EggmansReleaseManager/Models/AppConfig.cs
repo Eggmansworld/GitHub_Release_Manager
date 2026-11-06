@@ -29,6 +29,9 @@ public sealed class AppConfig
     public double WindowWidth { get; set; } = 1280;
     public double WindowHeight { get; set; } = 860;
 
+    /// <summary>Tracked Repos column widths in px, by column header id (user-resized).</summary>
+    public Dictionary<string, double> RepoColumnWidths { get; set; } = new();
+
     public FilterConfig Filters { get; set; } = new();
 
     [JsonExtensionData]
