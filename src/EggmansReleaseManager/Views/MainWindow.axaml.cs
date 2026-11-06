@@ -24,6 +24,15 @@ public partial class MainWindow : Window, IUiHost
         folderBox.AddHandler(DragDrop.DragOverEvent, OnFolderDragOver, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, true);
         folderBox.AddHandler(DragDrop.DropEvent, OnFolderDrop, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, true);
 
+        DataContextChanged += (_, _) =>
+        {
+            if (DataContext is not MainViewModel m) return;
+            m.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName is nameof(MainViewModel.NoTransfers) or nameof(MainViewModel.HasRaces)) UpdateDccRows();
+            };
+            UpdateDccRows();
+        };
         Opened += (_, _) =>
         {
             if (DataContext is MainViewModel vm)
@@ -39,7 +48,17 @@ public partial class MainWindow : Window, IUiHost
             if (DataContext is not MainViewModel vm) return;
             if (WindowState == WindowState.Normal) vm.SaveWindowSize(Width, Height);
             SaveRepoColumns(vm.RepoColumnWidths);
+            vm.HangUp();
         };
+    }
+
+    /// <summary>Transfers on top, race board below; whichever is empty gives its space to the other.</summary>
+    private void UpdateDccRows()
+    {
+        if (DataContext is not MainViewModel vm) return;
+        var rows = DccGrid.RowDefinitions;
+        rows[0].Height = !vm.NoTransfers || !vm.HasRaces ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        rows[2].Height = vm.HasRaces ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
     }
 
     // ───────── Tracked Repos column widths (RepoGrid field is generated from x:Name) ─────────
@@ -129,6 +148,10 @@ public partial class MainWindow : Window, IUiHost
         RetroDialog.Choose(this, title, message, MsgKind.Warn, options, options.Length - 1);
 
     public Task ShowAbout() => RetroDialog.ShowNfo(this);
+
+    public Task<bool> ShowRules() => RetroDialog.ShowRules(this);
+
+    public Task ShowTopBoard(string text) => RetroDialog.ShowTopBoard(this, text);
 
     public async Task<string?> PickFolder(string title, string? start)
     {

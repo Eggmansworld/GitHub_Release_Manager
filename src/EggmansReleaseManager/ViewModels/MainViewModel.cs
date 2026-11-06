@@ -34,10 +34,11 @@ public sealed partial class MainViewModel : ObservableObject
     public string Version { get; } = "v" + (typeof(MainViewModel).Assembly.GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "4");
     public string Logo => AsciiArt.Logo;
     public string Tagline => AsciiArt.Tagline;
-    public string ScrollerText => AsciiArt.ScrollerJoin(_cfg.ScrollerText);
+    public string ScrollerText => _cfg.LeetSpeak ? Leet.Apply(AsciiArt.ScrollerJoin(_cfg.ScrollerText)) : AsciiArt.ScrollerJoin(_cfg.ScrollerText);
 
     public ObservableCollection<RepoRow> Repos { get; } = [];
     public ObservableCollection<TransferItem> Transfers { get; } = [];
+    public ObservableCollection<RaceItem> Races { get; } = [];
     public ObservableCollection<LogLine> Log { get; } = [];
 
     [ObservableProperty] private string _repoInput = "";
@@ -65,7 +66,8 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _clock = "";
 
     // 1:3 ratio box
-    public string RatioUser { get; } = Environment.UserName.ToLowerInvariant();
+    [ObservableProperty] private string _ratioUser = "";
+    [ObservableProperty] private string _ratioNukes = "";
     public string RatioDisplay => Ratio.Display;
     [ObservableProperty] private string _ratioClass = "";
     [ObservableProperty] private string _ratioUp = "";
@@ -82,6 +84,12 @@ public sealed partial class MainViewModel : ObservableObject
     public string PauseLabel => IsPaused ? "[F7] RESUME" : "[F7] PAUSE";
     public string RunGlyph => IsPaused ? "PAUSED" : IsDownloading ? "XFER" : IsBusy ? "BUSY" : "IDLE";
     public bool NoTransfers => Transfers.Count == 0;
+    public bool HasRaces => Races.Count > 0;
+    public bool ShowIdleDcc => Transfers.Count == 0 && Races.Count == 0;
+    public bool HasFinishedRaces => Races.Any(r => !r.IsRacing);
+    private const string Bot = "<EggBot> ";
+    private bool _hungUp;
+    private int _downloadedThisRun;
 
     private sealed class RunState
     {
@@ -121,7 +129,9 @@ public sealed partial class MainViewModel : ObservableObject
         }
         if (string.IsNullOrWhiteSpace(_repoInput)) _repoInput = _db.Repos.Keys.OrderBy(k => k, StringComparer.Ordinal).FirstOrDefault() ?? "";
 
-        Transfers.CollectionChanged += (_, _) => OnPropertyChanged(nameof(NoTransfers));
+        Transfers.CollectionChanged += (_, _) => { OnPropertyChanged(nameof(NoTransfers)); OnPropertyChanged(nameof(ShowIdleDcc)); };
+        Races.CollectionChanged += (_, _) => { OnPropertyChanged(nameof(HasRaces)); OnPropertyChanged(nameof(ShowIdleDcc)); RaceStateChanged(); };
+        _ratioUser = Handle.For(cfg);
         GitHubApi.RateLimitChanged += rl => Dispatcher.UIThread.Post(() =>
             StatApi = $"{rl.Remaining}/{rl.Limit}");
 
@@ -148,7 +158,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     // ═══════════════════════════ modem intro ═══════════════════════════
 
-    private string WelcomeLine => $"Welcome to EGGNET node 1 · {_db.Repos.Count} repos online · {Environment.UserName}@{Environment.MachineName}";
+    private string WelcomeLine => $"Welcome to EGGNET node 1, {RatioUser} · {_db.Repos.Count} repos online · {Environment.MachineName}";
 
     /// <summary>Plays the synthesized dial-up handshake and prints the AT log lines in sync with it.</summary>
     public void StartIntro()
@@ -242,6 +252,73 @@ public sealed partial class MainViewModel : ObservableObject
             : "OFF";
     }
 
+    // ═══════════════════════════ zipscript race board ═══════════════════════════
+
+    private void FinishRace(RaceItem race, RaceState state)
+    {
+        race.Finish(state);
+        var stats = $"{race.DoneFiles}F {Zipscript.Compact(race.DoneBytes)} in {Fmt.Eta(race.Elapsed.TotalSeconds)}{(race.Speed is { Length: > 0 } sp ? " @ " + sp : "")}";
+        switch (state)
+        {
+            case RaceState.Complete:
+                AddLog($"{Bot}[COMPLETE] {race.Repo} {race.Tag} :: {stats} :: raced by {RatioUser} -[COMPLETE]-", LogKind.Bot);
+                break;
+            case RaceState.Incomplete:
+                AddLog($"{Bot}[INCOMPLETE] {race.Repo} {race.Tag} :: {race.DoneFiles} of {race.TotalFiles}F, {race.FailedFiles} failed", LogKind.Bot);
+                break;
+            case RaceState.Stopped:
+                AddLog($"{Bot}[STOPPED] {race.Repo} {race.Tag} :: {race.DoneFiles} of {race.TotalFiles}F before the plug was pulled", LogKind.Bot);
+                break;
+        }
+    }
+
+    private void RaceStateChanged()
+    {
+        OnPropertyChanged(nameof(HasFinishedRaces));
+        ClearRacesCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>Clears finished races from the board (ones still racing stay).</summary>
+    [RelayCommand(CanExecute = nameof(HasFinishedRaces))]
+    private void ClearRaces()
+    {
+        foreach (var r in Races.Where(r => !r.IsRacing).ToList()) Races.Remove(r);
+    }
+
+    // ═══════════════════════════ site wkup board ═══════════════════════════
+
+    [RelayCommand]
+    private Task TopUploaders() => _ui.ShowTopBoard(BuildTopBoard(DateTime.Now));
+
+    public string BuildTopBoard(DateTime nowLocal)
+    {
+        const int inner = 63;
+        var sb = new System.Text.StringBuilder();
+        void Board(string title, DateTime? since)
+        {
+            var rows = TopBoard.Compute(_db, since);
+            var sinceText = since is { } d ? "since " + d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : "all time";
+            var head = $"-[ {title} ]";
+            var tail = $"[ {sinceText} ]-";
+            sb.Append('.').Append(head).Append(new string('-', inner - head.Length - tail.Length)).Append(tail).Append(".\n");
+            sb.Append("| " + " ##  REPOSiTORY                            FiLES       SiZE".PadRight(inner - 2) + " |\n");
+            if (rows.Count == 0) sb.Append("| " + "     nobody raced anything. lamers.".PadRight(inner - 2) + " |\n");
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var e = rows[i];
+                var name = e.Repo.Length > 34 ? e.Repo[..33] + "~" : e.Repo;
+                var row = $" {i + 1:00}  {name,-34} {e.Files,7:N0} {Fmt.BytesOrZero(e.Bytes),10}";
+                sb.Append("| " + row.PadRight(inner - 2) + " |\n");
+            }
+            sb.Append((char)96).Append(new string('-', inner)).Append("'\n\n");
+        }
+        sb.Append($"  site stats :: {RatioUser} @ EGGNET :: class {RatioClass} :: ratio {Ratio.Display}\n\n");
+        Board("WKUP", TopBoard.WeekStart(nowLocal));
+        Board("MONTHUP", TopBoard.MonthStart(nowLocal));
+        Board("ALLUP", null);
+        return sb.ToString().TrimEnd();
+    }
+
     // ═══════════════════════════ ratio ═══════════════════════════
 
     private void UpdateRatio()
@@ -259,6 +336,8 @@ public sealed partial class MainViewModel : ObservableObject
         RatioCredits = credits < 0 ? $"-{Fmt.BytesOrZero(-credits)}  LEECH!" : Fmt.BytesOrZero(credits);
         RatioBar = Fmt.Bar(progress, 10);
         RatioNext = next is null ? "MAXED" : next.Name;
+        var nf = _db.Repos.Values.Sum(r => r.NukedFiles);
+        RatioNukes = nf == 0 ? "none" : $"{nf.ToString("N0", CultureInfo.InvariantCulture)}F ({Fmt.BytesOrZero(_db.Repos.Values.Sum(r => r.NukedBytes))})";
     }
 
     // ═══════════════════════════ persistence ═══════════════════════════
@@ -285,6 +364,15 @@ public sealed partial class MainViewModel : ObservableObject
     {
         try { Stores.WriteTrackedList(_db); }
         catch (Exception ex) { AddLog($"ERROR writing tracked_repos.txt: {ex.Message}", LogKind.Err); }
+    }
+
+    /// <summary>NO CARRIER: plays the hang-up (blocking, ~0.5 s) once, on the way out.</summary>
+    public void HangUp()
+    {
+        if (_hungUp) return;
+        _hungUp = true;
+        ModemSound.Stop();
+        if (_cfg.SoundEffects) ModemSound.Play(ModemSound.NoCarrier(), wait: true);
     }
 
     public void OnShutdown()
@@ -484,6 +572,7 @@ public sealed partial class MainViewModel : ObservableObject
         _pause.Resume();
         IsPaused = false;
         var summary = new List<string>();
+        _downloadedThisRun = 0;
         if (batch) AddLog($"Starting batch update for {repos.Count} repos...");
 
         try
@@ -508,6 +597,7 @@ public sealed partial class MainViewModel : ObservableObject
             SaveDb();
             RefreshRepos();
         }
+        if (_downloadedThisRun > 0 && _cfg.SoundEffects) ModemSound.Play(ModemSound.ZmodemBeep());
 
         if (batch && !_stopRequested)
         {
@@ -560,7 +650,8 @@ public sealed partial class MainViewModel : ObservableObject
         UpdatePlan plan;
         try
         {
-            plan = await Task.Run(() => RepoMaintenance.Plan(repo, releases, info, root, skip, filter));
+            var diz = _cfg.WriteDiz ? RatioUser : null;
+            plan = await Task.Run(() => RepoMaintenance.Plan(repo, releases, info, root, skip, filter, diz));
         }
         catch (Exception ex)
         {
@@ -570,7 +661,10 @@ public sealed partial class MainViewModel : ObservableObject
         }
         foreach (var w in plan.Warnings) AddLog($"Warning: {w}", LogKind.Warn);
         var filteredNote = plan.Filtered > 0 ? $" ({plan.Filtered} filtered)" : "";
-        if (plan.Filtered > 0) AddLog($"{repo}: {plan.Filtered} of {plan.TotalSeen} asset(s) filtered out by platform/pattern rules", LogKind.Warn);
+        info.NukedFiles = plan.Nukes.Count;
+        info.NukedBytes = plan.Nukes.Sum(n => n.Size);
+        if (plan.Filtered > 0)
+            AddLog($"{Bot}[NUKE] {repo} :: {plan.Filtered} of {plan.TotalSeen}F nuked ({Zipscript.Compact(info.NukedBytes)}) :: {Nuke.Summary(plan.Nukes)}", LogKind.Bot);
 
         if (plan.TotalSeen == 0)
         {
@@ -606,6 +700,20 @@ public sealed partial class MainViewModel : ObservableObject
         Transfers.Clear();
         _transferMap.Clear();
         IsDownloading = true;
+        foreach (var g in plan.Jobs.GroupBy(j => j.Tag))
+        {
+            var race = new RaceItem
+            {
+                Repo = repo, Tag = g.Key, TotalFiles = g.Count(), TotalBytes = g.Sum(j => j.Asset.Size),
+                IsNew = !info.Assets.ContainsKey(g.Key),
+            };
+            race.Refresh();
+            race.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(RaceItem.State)) RaceStateChanged(); };
+            Races.Insert(0, race);
+            if (race.IsNew)
+                AddLog($"{Bot}[NEW] {repo} {g.Key} :: {race.TotalFiles}F {Zipscript.Compact(race.TotalBytes)} :: racing now", LogKind.Bot);
+        }
+        while (Races.Count > 200) Races.RemoveAt(Races.Count - 1);
 
         Status($"{repo}: downloading {plan.Jobs.Count} asset(s) ({Fmt.Bytes(plan.TotalBytes)}) of {plan.TotalSeen} seen{filteredNote}...");
         AddLog($"{repo}: starting {plan.Jobs.Count} asset(s), {Fmt.Bytes(plan.TotalBytes)} total...");
@@ -656,6 +764,8 @@ public sealed partial class MainViewModel : ObservableObject
         var ok = run.Ok;
         var failed = run.Failed;
         var stopped = _stopRequested;
+        foreach (var race in Races.Where(r => r.IsRacing && r.Repo == repo).ToList())
+            FinishRace(race, stopped ? RaceState.Stopped : RaceState.Incomplete);
         var result = $"OK={ok}, Failed={failed}{(plan.Filtered > 0 ? $", Filtered={plan.Filtered}" : "")}";
         if (stopped) result = "Stopped: " + result;
         info.LastResult = result;
@@ -707,6 +817,13 @@ public sealed partial class MainViewModel : ObservableObject
                 // hard stop: partial file stays on disk for resume next time; don't count as a failure record
                 continue;
             }
+
+            if (Races.FirstOrDefault(x => x.IsRacing && x.Repo == run.Repo && x.Tag == r.Job.Tag) is { } race)
+            {
+                race.Add(r.Success && r.Sha1 is not null, r.Job.Asset.Size);
+                if (race.IsFinishedCount) FinishRace(race, race.FailedFiles == 0 ? RaceState.Complete : RaceState.Incomplete);
+            }
+            if (r.Success) _downloadedThisRun++;
 
             run.Records.Add(new AssetRecord
             {
@@ -853,7 +970,10 @@ public sealed partial class MainViewModel : ObservableObject
     private void ClearLog() => Log.Clear();
 
     [RelayCommand]
-    private Task About() => _ui.ShowAbout();
+    private async Task About()
+    {
+        if (await _ui.ShowRules()) await _ui.ShowAbout();
+    }
 
     // ═══════════════════════════ tools (DAT / PDF / orphans / hashes / scan) ═══════════════════════════
 
@@ -1065,6 +1185,8 @@ public sealed partial class MainViewModel : ObservableObject
         ShowScanlines = _cfg.CrtScanlines;
         ShowScroller = _cfg.Scroller;
         OnPropertyChanged(nameof(ScrollerText));
+        RatioUser = Handle.For(_cfg);
+        UI.LeetText.Enabled = _cfg.LeetSpeak;
         if (AutoUpdateEnabled != _cfg.AutoUpdateEnabled) AutoUpdateEnabled = _cfg.AutoUpdateEnabled; // triggers reschedule
         else ScheduleAutoUpdate();
         AddLog("Sysop setup saved.", LogKind.Ok);

@@ -33,6 +33,8 @@ public partial class App : Application
     {
         var config = Stores.LoadConfig();
         ThemeManager.Apply(config.Theme, config.FontFamily, config.FontSize);
+        LeetText.Install();
+        LeetText.Enabled = config.LeetSpeak;
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {

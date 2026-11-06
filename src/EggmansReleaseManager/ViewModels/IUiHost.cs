@@ -14,5 +14,8 @@ public interface IUiHost
     Task<bool> ShowFilters(FilterEditorViewModel vm);
     Task<bool> ShowSettings(SettingsViewModel vm);
     Task ShowAbout();
+    /// <summary>The F1 site rules screen. True = user agreed (go on to the NFO).</summary>
+    Task<bool> ShowRules();
+    Task ShowTopBoard(string text);
     void ScrollLogToEnd();
 }

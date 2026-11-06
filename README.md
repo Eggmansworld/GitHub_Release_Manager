@@ -31,6 +31,15 @@ A multi-repo GitHub release downloader with metadata tracking, incremental updat
 - **Dial-up handshake on startup**: a real 56k-era handshake recording plays while the AT commands scroll by in time with it: dial tone, DTMF dialing 1-800-EGG-MAN1 (1-800-344-6261), ringing, V.8 negotiation, the 2100 Hz answer tone, line probing, V.34 training and CONNECT. Switch it off, or play it on demand with *♪ DiAL NOW*, in SETUP.
 - **1:3 ratio box**: a topsite-style USER iNFO panel. Your archive is the site: every byte you race in counts as UP and earns 3 bytes of credit, and every byte pulled from GitHub (re-downloads included) counts as DN. Your class (NEWBiE → USER → ViP → ELiTE → SiTEOP → LEGEND) goes up with the size of your archive, and each finished update logs its race stats.
 - **Your own greetz**: edit the cracktro scroller in SETUP. Each line is one message; *RESTORE DEFAULT GREETZ* brings back the stock ones.
+- **Your handle**: set your oldschool BBS handle in SETUP (up to 30 characters, WWIV's limit). It shows in USER iNFO, the status bar, the sitebot announcements and every FILE_ID.DIZ. Blank uses your Windows user name.
+- **Zipscript race board**: each release being downloaded gets a pzs-ng style line under DCC TRANSFERS, like `[EGG] - 44% Complete - 4 of 9 files - [EGG]`. It turns into `[EGG] - ( 107.4MB 9F - COMPLETE ) - [EGG]` when done (or INCOMPLETE / STOPPED). Results stay on screen until you press *[ CLEAR ]*.
+- **EggBot sitebot**: #releases gets IRC-style announcements: `[NEW]` for a release you didn't have, `[COMPLETE]` with size, time and speed, and `[NUKE]` for assets your filters skipped, grouped by reason (`platform.linux x12`).
+- **Nukes**: filtered assets are counted as nukes and shown in USER iNFO.
+- **FILE_ID.DIZ**: every release folder gets a 45-column ASCII FILE_ID.DIZ next to `release_notes.txt`. Neither file counts as an orphan or an asset. You can switch it off in SETUP.
+- **site wkup**: *F4* (or TOOLS → Top Uploaders) shows WKUP, MONTHUP and ALLUP boards, ranking your repos by what you archived this week, this month and in total.
+- **Site rules**: *F1* shows the site rules first, typed out like a 2400 baud login (space skips). *I AGREE* takes you on to the NFO.
+- **Sound fx**: a ZMODEM-style triple beep when downloads finish, and the NO CARRIER hang-up when you quit. You can switch them off in SETUP.
+- **31337 5P34K**: a toggle in SETUP that runs every bit of on-screen text through an elite translator. Text you type is left alone.
 - **New look**: four colour schemes (ANSi Classic, Amber Terminal, Green Phosphor, ACiD Trip) with a live preview, a configurable font, and CRT and scroller effects you can switch off.
 - **Single portable exe**: no Python, pip or batch files. Config and DB still live next to the exe.
 - **Keyboard driven**: F5 update selected · F6 update all · F7 pause · F8 safe stop · F9 hard stop · F3 filters · F2 setup · F1 nfo

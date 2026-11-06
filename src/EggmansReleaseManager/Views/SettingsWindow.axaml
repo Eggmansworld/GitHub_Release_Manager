@@ -10,12 +10,22 @@
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1">
   <Border BorderBrush="{DynamicResource FrameHiBrush}" BorderThickness="1">
-    <StackPanel>
-      <Border Name="TitleDrag" Background="{DynamicResource SelBgBrush}" Padding="10,4">
+    <DockPanel>
+      <Border Name="TitleDrag" DockPanel.Dock="Top" Background="{DynamicResource SelBgBrush}" Padding="10,4">
         <TextBlock Foreground="{DynamicResource SelFgBrush}" FontWeight="Bold" Text="▓▒░ SYSOP SETUP ░▒▓" />
       </Border>
 
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
       <StackPanel Margin="16,6,16,14" Spacing="4">
+        <HeaderedContentControl Theme="{StaticResource RetroPanel}" Header="NEW USER // HANDLE">
+          <Grid ColumnDefinitions="200,*" RowDefinitions="Auto,Auto">
+            <TextBlock Grid.Row="0" Text="HANDLE ........." Classes="label" />
+            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Username}" MaxLength="{Binding MaxHandle}"
+                     Watermark="your oldschool handle" />
+            <TextBlock Grid.Row="1" Grid.Column="1" Classes="dim" Margin="0,4,0,0" Text="{Binding HandleHint}" />
+          </Grid>
+        </HeaderedContentControl>
+
         <HeaderedContentControl Theme="{StaticResource RetroPanel}" Header="TRANSFER">
           <Grid ColumnDefinitions="200,*" RowDefinitions="Auto,Auto,Auto" >
             <TextBlock Grid.Row="0" Text="MAX THREADS ......" Classes="label" />
@@ -74,6 +84,12 @@
               <CheckBox Content="modem handshake on startup (with sound)" IsChecked="{Binding ModemIntro}" Margin="0,0,10,0" />
               <Button Classes="flat" Content="[ ♪ DiAL NOW ]" Command="{Binding TestDialCommand}" ToolTip.Tip="Play the handshake" />
             </WrapPanel>
+            <WrapPanel>
+              <CheckBox Content="sound fx (ZMODEM beep, NO CARRIER)" IsChecked="{Binding SoundEffects}" Margin="0,0,24,0" />
+              <CheckBox Content="write FILE_ID.DIZ" IsChecked="{Binding WriteDiz}" Margin="0,0,24,0"
+                        ToolTip.Tip="Puts a 45-column FILE_ID.DIZ next to release_notes.txt in every release folder" />
+              <CheckBox Content="31337 5P34K" IsChecked="{Binding LeetSpeak}" ToolTip.Tip="Run all screen text through the elite translator" />
+            </WrapPanel>
           </StackPanel>
         </HeaderedContentControl>
 
@@ -97,6 +113,7 @@
           <Button Content="CANCEL" Click="OnCancel" MinWidth="110" />
         </StackPanel>
       </StackPanel>
-    </StackPanel>
+      </ScrollViewer>
+    </DockPanel>
   </Border>
 </Window>

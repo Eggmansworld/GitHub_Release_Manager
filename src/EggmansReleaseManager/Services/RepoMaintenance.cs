@@ -5,25 +5,29 @@ namespace EggmansReleaseManager.Services;
 
 public sealed record UpdatePlan(List<DownloadJob> Jobs, int TotalSeen, int Filtered, int Releases, List<string> Warnings)
 {
+    /// <summary>Assets the filters skipped, with a short reason tag.</summary>
+    public List<Nuke> Nukes { get; init; } = [];
+
     public long TotalBytes => Jobs.Sum(j => j.Asset.Size);
 }
 
 public static class RepoMaintenance
 {
     public const string ReleaseNotesFile = "release_notes.txt";
-    private static readonly string[] NonAssetFiles = [ReleaseNotesFile];
+    private static readonly string[] NonAssetFiles = [ReleaseNotesFile, Diz.FileName];
 
     /// <summary>
     /// Works out which assets need downloading (same rules as v3) after applying the asset filter,
     /// and writes release_notes.txt into each tag folder that has something kept.
     /// </summary>
     public static UpdatePlan Plan(string repoKey, IReadOnlyList<GhRelease> releases, RepoInfo info,
-        string rootFolder, bool skipExisting, AssetFilter filter)
+        string rootFolder, bool skipExisting, AssetFilter filter, string? dizHandle = null)
     {
         var repoRoot = AppPaths.RepoRoot(rootFolder, repoKey);
         Directory.CreateDirectory(repoRoot);
         var jobs = new List<DownloadJob>();
         var warnings = new List<string>();
+        var nukes = new List<Nuke>();
         int seen = 0, filtered = 0;
 
         foreach (var rel in releases)
@@ -36,8 +40,13 @@ public static class RepoMaintenance
             foreach (var a in rel.Assets)
             {
                 seen++;
-                if (filter.Keep(a.Name)) kept.Add(a);
-                else filtered++;
+                var d = filter.Evaluate(a.Name);
+                if (d.Keep) kept.Add(a);
+                else
+                {
+                    filtered++;
+                    nukes.Add(new Nuke(tag, a.Name, a.Size, Nuke.ReasonTag(d.Reason)));
+                }
             }
 
             // Every asset of this release was filtered out -> don't create a folder at all.
@@ -46,6 +55,11 @@ public static class RepoMaintenance
             Directory.CreateDirectory(tagFolder);
             try { WriteReleaseNotes(repoKey, rel, tagFolder); }
             catch (Exception ex) { warnings.Add($"release notes {tag}: {ex.Message}"); }
+            if (dizHandle is not null)
+            {
+                try { Diz.Write(tagFolder, Diz.Build(repoKey, tag, rel.PublishedAt, kept.Count, kept.Sum(k => k.Size), dizHandle)); }
+                catch (Exception ex) { warnings.Add($"FILE_ID.DIZ {tag}: {ex.Message}"); }
+            }
 
             info.Assets.TryGetValue(tag, out var tagDb);
             foreach (var asset in kept)
@@ -67,7 +81,7 @@ public static class RepoMaintenance
                 if (needs) jobs.Add(new DownloadJob(asset, tagFolder, tag));
             }
         }
-        return new UpdatePlan(jobs, seen, filtered, releases.Count, warnings);
+        return new UpdatePlan(jobs, seen, filtered, releases.Count, warnings) { Nukes = nukes };
     }
 
     private static void WriteReleaseNotes(string repoKey, GhRelease rel, string tagFolder)

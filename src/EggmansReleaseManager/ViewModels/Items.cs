@@ -80,7 +80,7 @@ public sealed partial class TransferItem : ObservableObject
     }
 }
 
-public enum LogKind { Info, Ok, Warn, Err, Sys }
+public enum LogKind { Info, Ok, Warn, Err, Sys, Bot }
 
 public sealed class LogLine
 {
@@ -94,6 +94,7 @@ public sealed class LogLine
         LogKind.Ok => "+++",
         LogKind.Warn => "-!-",
         LogKind.Sys => ">>>",
+        LogKind.Bot => "<@>",
         _ => "***",
     };
 
@@ -101,6 +102,7 @@ public sealed class LogLine
     public bool IsOk => Kind == LogKind.Ok;
     public bool IsWarn => Kind == LogKind.Warn;
     public bool IsSys => Kind == LogKind.Sys;
+    public bool IsBot => Kind == LogKind.Bot;
 
     /// <summary>Colour by content, like v3's log().</summary>
     public static LogKind Classify(string msg)
@@ -110,5 +112,62 @@ public sealed class LogLine
         if (new[] { "finished", "complete", "success", "ok=", "saved", "generated", "added", "up to date" }.Any(lo.Contains)) return LogKind.Ok;
         if (new[] { "warn", "missing", "skip", "cancel", "stop", "abort", "filtered", "pause" }.Any(lo.Contains)) return LogKind.Warn;
         return LogKind.Info;
+    }
+}
+
+public enum RaceState { Racing, Complete, Incomplete, Stopped }
+
+/// <summary>One release (repo + tag) being raced in: the zipscript line in the DCC panel.</summary>
+public sealed partial class RaceItem : ObservableObject
+{
+    public required string Repo { get; init; }
+    public required string Tag { get; init; }
+    public required int TotalFiles { get; init; }
+    public required long TotalBytes { get; init; }
+    public bool IsNew { get; init; }
+    public DateTime Started { get; } = DateTime.UtcNow;
+
+    public int DoneFiles { get; private set; }
+    public int FailedFiles { get; private set; }
+    public long DoneBytes { get; private set; }
+    public TimeSpan Elapsed { get; private set; }
+
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(IsRacing), nameof(IsComplete), nameof(IsBad))]
+    private RaceState _state = RaceState.Racing;
+    [ObservableProperty] private string _line = "";
+    [ObservableProperty] private string _detail = "";
+
+    public bool IsRacing => State == RaceState.Racing;
+    public bool IsComplete => State == RaceState.Complete;
+    public bool IsBad => State is RaceState.Incomplete or RaceState.Stopped;
+    public bool IsFinishedCount => DoneFiles + FailedFiles >= TotalFiles;
+
+    public void Add(bool ok, long bytes)
+    {
+        if (ok) { DoneFiles++; DoneBytes += bytes; } else FailedFiles++;
+        Refresh();
+    }
+
+    public void Finish(RaceState state)
+    {
+        Elapsed = DateTime.UtcNow - Started;
+        State = state;
+        Refresh();
+    }
+
+    public string Speed => Elapsed.TotalSeconds > 0.5 ? Fmt.Speed(DoneBytes / Elapsed.TotalSeconds) : "";
+
+    public void Refresh()
+    {
+        var pct = TotalBytes > 0 ? DoneBytes * 100.0 / TotalBytes : TotalFiles > 0 ? DoneFiles * 100.0 / TotalFiles : 100;
+        Line = State switch
+        {
+            RaceState.Complete => Zipscript.Complete(DoneBytes, DoneFiles),
+            RaceState.Incomplete => Zipscript.Incomplete(DoneFiles, TotalFiles),
+            RaceState.Stopped => Zipscript.Incomplete(DoneFiles, TotalFiles, "STOPPED"),
+            _ => Zipscript.Racing(DoneFiles, TotalFiles, pct),
+        };
+        var took = State == RaceState.Racing ? "" : $" · {Fmt.Eta(Elapsed.TotalSeconds)}{(Speed is { Length: > 0 } sp ? " @ " + sp : "")}";
+        Detail = $"  {Repo} {Tag}{took}{(FailedFiles > 0 ? $" · {FailedFiles} failed" : "")}";
     }
 }

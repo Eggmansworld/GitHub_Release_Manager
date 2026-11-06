@@ -125,6 +125,51 @@ public sealed class RetroDialog : Window
         return r is null or -1 ? cancelIndex : r.Value;
     }
 
+    /// <summary>F1 site rules: typed out line by line like a 2400 baud login. True = I AGREE.</summary>
+    public static async Task<bool> ShowRules(Window owner)
+    {
+        var lines = AsciiArt.SiteRules.Replace("\r", "").Split('\n');
+        var text = new SelectableTextBlock
+        {
+            Foreground = ThemeManager.Brush("HiBrush"),
+            FontFamily = (FontFamily)Application.Current!.Resources["MonoFont"]!,
+        };
+        var dlg = new RetroDialog("SiTE RULES", new ScrollViewer { Content = text, MaxHeight = 620 },
+            [("[ I AGREE ]", 1, "hot"), ("[ LEAVE ]", 0, null)], maxWidth: 900);
+        // reserve the final size up front so the window doesn't grow while typing
+        text.MinHeight = lines.Length * 17;
+        text.MinWidth = lines.Max(l => l.Length) * 7.8;
+        var shown = 0;
+        var closed = false;
+        dlg.Closed += (_, _) => closed = true;
+        dlg.KeyDown += (_, e) => { if (e.Key == Key.Space) shown = lines.Length - 1; };   // space = skip the typing
+        dlg.Opened += async (_, _) =>
+        {
+            while (!closed && shown < lines.Length)
+            {
+                shown++;
+                text.Text = string.Join('\n', lines.Take(shown));
+                await Task.Delay(45);
+            }
+        };
+        var r = await dlg.ShowDialog<int?>(owner);
+        return r == 1;
+    }
+
+    /// <summary>site wkup / monthup / allup boards.</summary>
+    public static async Task ShowTopBoard(Window owner, string board)
+    {
+        var text = new SelectableTextBlock
+        {
+            Text = board,
+            Foreground = ThemeManager.Brush("AccentBrush"),
+            FontFamily = (FontFamily)Application.Current!.Resources["MonoFont"]!,
+        };
+        var dlg = new RetroDialog("SiTE WKUP // TOP UPLOADERS", new ScrollViewer { Content = text, MaxHeight = 640 },
+            [("CLOSE", 0, "hot")], maxWidth: 900);
+        await dlg.ShowDialog<int?>(owner);
+    }
+
     public static async Task ShowNfo(Window owner)
     {
         var text = new SelectableTextBlock

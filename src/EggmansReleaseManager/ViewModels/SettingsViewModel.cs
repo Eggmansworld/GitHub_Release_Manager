@@ -28,6 +28,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _scroller;
     [ObservableProperty] private bool _modemIntro;
     [ObservableProperty] private string _scrollerText;
+    [ObservableProperty] private string _username;
+    [ObservableProperty] private bool _soundEffects;
+    [ObservableProperty] private bool _writeDiz;
+    [ObservableProperty] private bool _leetSpeak;
+
+    public int MaxHandle => Services.Handle.MaxLength;
+    public string HandleHint => $"max {Services.Handle.MaxLength} chars (WWIV rules). Blank = {Environment.UserName.ToLowerInvariant()}";
 
     public List<ThemeChoice> Themes { get; }
     public string SelectedThemeId { get; private set; }
@@ -44,6 +51,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         _crtScanlines = c.CrtScanlines;
         _scroller = c.Scroller;
         _modemIntro = c.ModemIntro;
+        _username = c.Username;
+        _soundEffects = c.SoundEffects;
+        _writeDiz = c.WriteDiz;
+        _leetSpeak = c.LeetSpeak;
         _scrollerText = string.Join(Environment.NewLine, c.ScrollerText is { Count: > 0 } custom ? custom : AsciiArt.ScrollerLines);
         SelectedThemeId = ThemeManager.Get(c.Theme).Id;
 
@@ -93,6 +104,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         c.CrtScanlines = CrtScanlines;
         c.Scroller = Scroller;
         c.ModemIntro = ModemIntro;
+        c.Username = Services.Handle.Clean(Username);
+        c.SoundEffects = SoundEffects;
+        c.WriteDiz = WriteDiz;
+        c.LeetSpeak = LeetSpeak;
         var lines = SplitLines(ScrollerText);
         // matching the built-in greetz (or empty) stores null, so future default updates still show up
         c.ScrollerText = lines.Count == 0 || lines.SequenceEqual(AsciiArt.ScrollerLines) ? null : lines;

@@ -50,6 +50,28 @@ public static class AsciiArt
         return string.Join("          ", lines) + "          ";
     }
 
+    public const string SiteRules = """
+        ┌──────────────────────────────────────────────────────────────┐
+        │                                                              │
+        │   ░▒▓█  S i T E   R U L E S  █▓▒░      EGGNET // node 1      │
+        │                                        read 'em, lamer.      │
+        └──────────────────────────────────────────────────────────────┘
+
+          01 ... NO LAMERS. archive the release, don't just hoard links.
+          02 ... RATiO iS 1:3. race it in, earn your credits.
+          03 ... NUKES ARE FiNAL. if your filters say linux, it's gone.
+          04 ... NO DUPES. skip-existing is your friend.
+          05 ... STAR THE REPOS YOU ARCHiVE. support the coders.
+          06 ... RESPECT THE API LiMiT. 60/hr anon - get a token.
+          07 ... VERiFY YOUR HASHES. a bad crc is a bad day.
+          08 ... iDLE TOO LONG AND AUTO-UPDATE DOES iT FOR YOU.
+          09 ... WHAT HAPPENS ON EGGNET STAYS ON EGGNET.
+          10 ... THE SYSOP iS ALWAYS RiGHT. (the sysop is you.)
+
+          ─────────────────────────────────────────────────────────
+           break the rules and EggBot nukes you. press [I AGREE].
+        """;
+
     public const string Nfo = """
         ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
         █                                                  █
