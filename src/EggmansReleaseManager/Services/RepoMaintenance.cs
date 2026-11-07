@@ -14,7 +14,7 @@ public sealed record UpdatePlan(List<DownloadJob> Jobs, int TotalSeen, int Filte
 public static class RepoMaintenance
 {
     public const string ReleaseNotesFile = "release_notes.txt";
-    private static readonly string[] NonAssetFiles = [ReleaseNotesFile, Diz.FileName];
+    private static readonly string[] NonAssetFiles = [ReleaseNotesFile, Diz.FileName, Archives.SnapshotInfoFile];
 
     /// <summary>
     /// Works out which assets need downloading (same rules as v3) after applying the asset filter,
@@ -49,6 +49,13 @@ public static class RepoMaintenance
                 }
             }
 
+            // GitHub's "Source code" archives (opted in per repo / globally). Sizes are unknown until downloaded.
+            if (!string.IsNullOrWhiteSpace(rel.TagName))
+            {
+                if (filter.SourceZip) { kept.Add(Archives.SourceAsset(repoKey, rel.TagName!, Archives.SourceKind.Zip)); seen++; }
+                if (filter.SourceTarGz) { kept.Add(Archives.SourceAsset(repoKey, rel.TagName!, Archives.SourceKind.TarGz)); seen++; }
+            }
+
             // Every asset of this release was filtered out -> don't create a folder at all.
             if (rel.Assets.Count > 0 && kept.Count == 0) continue;
 
@@ -69,7 +76,14 @@ public static class RepoMaintenance
                 tagDb?.TryGetValue(asset.Name, out entry);
 
                 bool needs;
-                if (!File.Exists(filePath)) needs = true;
+                if (asset.SizeUnknown)
+                {
+                    // generated archive: no size to compare, so "on disk + in the DB" means done
+                    if (!File.Exists(filePath)) needs = true;
+                    else if (entry is null) { jobs.Add(new DownloadJob(asset, tagFolder, tag, HashOnly: true)); continue; }
+                    else needs = !skipExisting;
+                }
+                else if (!File.Exists(filePath)) needs = true;
                 else
                 {
                     var local = new FileInfo(filePath).Length;
@@ -153,7 +167,6 @@ public static class RepoMaintenance
         foreach (var repo in repos)
         {
             var filter = AssetFilter.For(filters, repo);
-            if (filter.IsEmpty) continue;
             var repoRoot = AppPaths.RepoRoot(rootFolder, repo);
             if (!Directory.Exists(repoRoot)) continue;
 
@@ -162,8 +175,9 @@ public static class RepoMaintenance
                 ct.ThrowIfCancellationRequested();
                 var parts = Path.GetRelativePath(repoRoot, file).Split(Path.DirectorySeparatorChar);
                 if (parts.Length < 2) continue;
-                if (IsReservedFolder(parts[0])) continue;
+                if (IsReservedFolder(parts[0]) || parts[0].Equals(Archives.SnapshotsFolder, StringComparison.OrdinalIgnoreCase)) continue;
                 var name = Path.GetFileName(file);
+                if (name.EndsWith(".part", StringComparison.OrdinalIgnoreCase)) continue;
                 if (NonAssetFiles.Contains(name, StringComparer.OrdinalIgnoreCase)) continue;
 
                 var d = filter.Evaluate(name);
@@ -295,6 +309,12 @@ public static class RepoMaintenance
             var parts = rel.Split(Path.DirectorySeparatorChar);
             if (parts.Length < 2) continue;                       // files directly in repo root
             var tag = parts[0];
+            if (tag.Equals(Archives.SnapshotsFolder, StringComparison.OrdinalIgnoreCase))
+            {
+                if (parts.Length < 3) continue;
+                tag = Archives.SnapshotTag(parts[1]);
+            }
+            if (file.EndsWith(".part", StringComparison.OrdinalIgnoreCase)) continue;
             if (IsReservedFolder(tag)) continue;
             var fn = Path.GetFileName(file);
             if (NonAssetFiles.Contains(fn, StringComparer.OrdinalIgnoreCase)) continue;

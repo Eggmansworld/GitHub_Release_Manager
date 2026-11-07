@@ -11,7 +11,7 @@ public sealed class GitHubException(string message) : Exception(message);
 
 public static class GitHubApi
 {
-    public const string UserAgent = "Eggman-GitHub-ReleaseManager/4.2";
+    public const string UserAgent = "Eggman-GitHub-ReleaseManager/4.3";
 
     /// <summary>Shared client for API calls and downloads (redirects to the CDN are followed).</summary>
     public static readonly HttpClient Http = CreateClient();
@@ -73,6 +73,46 @@ public static class GitHubApi
             if (batch.Count < 100) break; // last page; saves one API call per repo vs v3
         }
         return releases;
+    }
+
+    /// <summary>Default branch name and its latest commit SHA (2 API calls).</summary>
+    public static async Task<(string Branch, string Sha)> GetDefaultBranchHeadAsync(string repoKey, string? token, CancellationToken ct)
+    {
+        string branch;
+        using (var resp = await ApiGetAsync($"https://api.github.com/repos/{repoKey}", "application/vnd.github+json", token, ct).ConfigureAwait(false))
+        {
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            branch = doc.RootElement.TryGetProperty("default_branch", out var b) ? b.GetString() ?? "main" : "main";
+        }
+        var escaped = string.Join('/', branch.Split('/').Select(Uri.EscapeDataString));
+        using (var resp = await ApiGetAsync($"https://api.github.com/repos/{repoKey}/commits/{escaped}", "application/vnd.github.sha", token, ct).ConfigureAwait(false))
+        {
+            var sha = (await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false)).Trim();
+            if (sha.Length < 7 || sha.Any(c => !Uri.IsHexDigit(c))) throw new GitHubException($"Unexpected commit id for {branch}: {Trim(sha)}");
+            return (branch, sha.ToLowerInvariant());
+        }
+    }
+
+    private static string Trim(string s) => s.Length > 40 ? s[..40] + "..." : s;
+
+    private static async Task<HttpResponseMessage> ApiGetAsync(string url, string accept, string? token, CancellationToken ct)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(accept));
+        req.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
+        if (!string.IsNullOrWhiteSpace(token))
+            req.Headers.Authorization = new AuthenticationHeaderValue("token", token.Trim());
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromSeconds(30));
+        var resp = await Http.SendAsync(req, cts.Token).ConfigureAwait(false);
+        CaptureRateLimit(resp);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var msg = await DescribeErrorAsync(resp).ConfigureAwait(false);
+            resp.Dispose();
+            throw new GitHubException(msg);
+        }
+        return resp;
     }
 
     private static void CaptureRateLimit(HttpResponseMessage resp)

@@ -20,8 +20,16 @@ public sealed class AssetFilter
 
     public bool IsEmpty { get; }
 
-    public AssetFilter(FilterRule rule)
+    /// <summary>Effective "Source code" archive choices for this repo.</summary>
+    public bool SourceZip { get; }
+    public bool SourceTarGz { get; }
+    private readonly string? _repoKey;
+
+    public AssetFilter(FilterRule rule, string? repoKey = null)
     {
+        _repoKey = repoKey;
+        SourceZip = rule.SourceZip == true;
+        SourceTarGz = rule.SourceTarGz == true;
         _excludedTags = new HashSet<string>(rule.ExcludePlatforms, StringComparer.OrdinalIgnoreCase);
         _exclude = Compile(rule.ExcludePatterns);
         _include = Compile(rule.IncludePatterns);
@@ -29,7 +37,11 @@ public sealed class AssetFilter
     }
 
     /// <summary>Build the effective filter for a repo from the saved config.</summary>
-    public static AssetFilter For(FilterConfig cfg, string repoKey) => new(Effective(cfg, repoKey));
+    public static AssetFilter For(FilterConfig cfg, string repoKey) => new(Effective(cfg, repoKey), repoKey);
+
+    /// <summary>Whether this repo opted in to default-branch snapshots.</summary>
+    public static bool WantsSnapshot(FilterConfig cfg, string repoKey) =>
+        cfg.Repos?.FirstOrDefault(kv => string.Equals(kv.Key, repoKey, StringComparison.OrdinalIgnoreCase)).Value?.Snapshot == true;
 
     public static FilterRule Effective(FilterConfig cfg, string repoKey)
     {
@@ -42,11 +54,22 @@ public sealed class AssetFilter
             ExcludePlatforms = global.ExcludePlatforms.Union(repo.ExcludePlatforms, StringComparer.OrdinalIgnoreCase).ToList(),
             ExcludePatterns = global.ExcludePatterns.Concat(repo.ExcludePatterns).ToList(),
             IncludePatterns = global.IncludePatterns.Concat(repo.IncludePatterns).ToList(),
+            SourceZip = repo.SourceZip ?? global.SourceZip,
+            SourceTarGz = repo.SourceTarGz ?? global.SourceTarGz,
         };
     }
 
     public FilterDecision Evaluate(string fileName)
     {
+        // GitHub's generated "Source code" archives follow their own switches, not the patterns/tags
+        switch (Archives.Classify(fileName, _repoKey))
+        {
+            case Archives.SourceKind.Zip:
+                return new(SourceZip, SourceZip ? "source code (zip)" : "source zip off", ["source"]);
+            case Archives.SourceKind.TarGz:
+                return new(SourceTarGz, SourceTarGz ? "source code (tar.gz)" : "source tar.gz off", ["source"]);
+        }
+
         var tags = Detect(fileName);
 
         foreach (var (text, rx) in _include)

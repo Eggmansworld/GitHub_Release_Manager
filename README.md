@@ -40,6 +40,8 @@ A multi-repo GitHub release downloader with metadata tracking, incremental updat
 - **Site rules**: *F1* shows the site rules first, typed out like a 2400 baud login (space skips). *I AGREE* takes you on to the NFO.
 - **Sound fx**: a ZMODEM-style triple beep when downloads finish, and the NO CARRIER hang-up when you quit. You can switch them off in SETUP.
 - **31337 5P34K**: a toggle in SETUP that runs every bit of on-screen text through an elite translator. Text you type is left alone.
+- **Source code archives**: optionally grab GitHub's "Source code" zip and/or tar.gz for every release, saved as `<repo>-<tag>_source.zip` / `.tar.gz`. See [Source code archives and branch snapshots](#source-code-archives-and-branch-snapshots).
+- **Branch snapshots**: repos with no releases get a datestamped *Code → Download ZIP* snapshot of their default branch whenever it gets new commits. Other repos can opt in.
 - **New look**: four colour schemes (ANSi Classic, Amber Terminal, Green Phosphor, ACiD Trip) with a live preview, a configurable font, and CRT and scroller effects you can switch off.
 - **Single portable exe**: no Python, pip or batch files. Config and DB still live next to the exe.
 - **Keyboard driven**: F5 update selected · F6 update all · F7 pause · F8 safe stop · F9 hard stop · F3 filters · F2 setup · F1 nfo
@@ -107,8 +109,15 @@ All of these are stored next to the exe and created automatically on first run.
     owner_repo\
         <tag1>\
             asset files...
+            <repo>-<tag1>_source.zip      (if source archives are on)
+            <repo>-<tag1>_source.tar.gz   (if source archives are on)
             release_notes.txt
+            FILE_ID.DIZ
         <tag2>\
+        _snapshots\
+            2026-11-07_14-30-05\
+                <repo>-main.zip
+                snapshot_info.txt
         orphans\
     _metadata\
         json\  csv\  dat\  pdf\  logs\
@@ -170,6 +179,23 @@ Cleaned files are removed from the repo DB, and tag folders left holding only `r
 A release whose assets are all filtered out gets no folder. The Last Result column reports how many assets were filtered (e.g. `Up to date (140 filtered)`).
 
 ![Filter control](docs/filters_ansi.png)
+
+### Source code archives and branch snapshots
+
+GitHub builds two extra downloads for every release, "Source code (zip)" and "Source code (tar.gz)". They aren't uploaded assets, so the platform and pattern rules don't apply to them. Instead they have their own switches under **ALSO GET** in Filter Control:
+
+- **Source code (.zip)** / **Source code (.tar.gz)**: tick either or both, globally or per repo. In a repo's rules the boxes have a third state, `[·]`, which means "follow GLOBAL".
+- Files are saved in each release folder as `<repo>-<tag>_source.zip` / `<repo>-<tag>_source.tar.gz`.
+- Both are **off by default**. Switching one on fills in every past release on the next update, not just new ones.
+- GitHub makes these archives on the fly, so their size isn't known until they've downloaded. Progress for them counts files instead of bytes.
+- If you switch a format off again, the cleanup prompt offers to remove the archives you already have.
+
+**Default-branch snapshots** (the same as *Code → Download ZIP*):
+
+- Repos with **no releases at all** are snapshotted automatically. Any other repo can opt in with **snapshot default branch on new commits** in its own rules.
+- A snapshot is stored in `owner_repo\_snapshots\YYYY-MM-DD_hh-mm-ss\` (local time) as `<repo>-<branch>.zip`, alongside a `snapshot_info.txt` that records the branch and the exact commit.
+- A new snapshot is only taken when the default branch has a **new commit**, so auto-update doesn't pile up identical copies. Old snapshots are kept.
+- Checking for new commits uses 2 API calls per repo.
 
 ---
 

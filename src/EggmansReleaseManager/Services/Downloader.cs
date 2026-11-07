@@ -6,14 +6,18 @@ using EggmansReleaseManager.Models;
 
 namespace EggmansReleaseManager.Services;
 
-public sealed record DownloadJob(GhAsset Asset, string Folder, string Tag)
+public sealed record DownloadJob(GhAsset Asset, string Folder, string Tag, bool HashOnly = false)
 {
     public string FilePath => Path.Combine(Folder, Asset.Name);
 }
 
 public sealed record DownloadProgress(DownloadJob Job, long Downloaded, long Total, double BytesPerSec, double EtaSeconds);
 
-public sealed record DownloadResult(DownloadJob Job, bool Success, string? Sha1, string Error, bool Cancelled);
+public sealed record DownloadResult(DownloadJob Job, bool Success, string? Sha1, string Error, bool Cancelled, long Bytes = -1)
+{
+    /// <summary>Real size on disk when known (generated archives), else the size GitHub reported.</summary>
+    public long ActualBytes => Bytes >= 0 ? Bytes : Job.Asset.Size;
+}
 
 /// <summary>Async gate used for Pause/Resume.</summary>
 public sealed class PauseGate
@@ -82,6 +86,7 @@ public sealed class Downloader
 
     private async Task<DownloadResult> DownloadOneAsync(DownloadJob job, PauseGate pause, CancellationToken hardStop)
     {
+        if (job.Asset.SizeUnknown) return await DownloadUnknownSizeAsync(job, pause, hardStop).ConfigureAwait(false);
         var path = job.FilePath;
         var total = job.Asset.Size;
         var lastError = "";
@@ -164,5 +169,93 @@ public sealed class Downloader
         }
 
         return new(job, false, null, lastError, false);
+    }
+
+    /// <summary>
+    /// Generated archives (source code / branch snapshots) are built on the fly by GitHub: no size up front
+    /// and no resume. They go to a .part file that's renamed once complete.
+    /// </summary>
+    private async Task<DownloadResult> DownloadUnknownSizeAsync(DownloadJob job, PauseGate pause, CancellationToken hardStop)
+    {
+        var path = job.FilePath;
+        var part = path + ".part";
+        var lastError = "";
+
+        if (job.HashOnly && File.Exists(path))
+        {
+            try
+            {
+                var sha0 = await Task.Run(() => Hashing.Sha1File(path, hardStop), hardStop).ConfigureAwait(false);
+                return new(job, true, sha0, "", false, new FileInfo(path).Length);
+            }
+            catch (OperationCanceledException) { return new(job, false, null, "Hard stop requested", true); }
+            catch (Exception ex) { return new(job, false, null, ex.Message, false); }
+        }
+
+        for (var attempt = 0; attempt < RetryLimit; attempt++)
+        {
+            if (hardStop.IsCancellationRequested) { TryDelete(part); return new(job, false, null, "Hard stop requested", true); }
+            try
+            {
+                Directory.CreateDirectory(job.Folder);
+                using var resp = await GitHubApi.Http.GetAsync(job.Asset.BrowserDownloadUrl, HttpCompletionOption.ResponseHeadersRead, hardStop).ConfigureAwait(false);
+                if (resp.StatusCode == HttpStatusCode.NotFound)
+                    return new(job, false, null, "HTTP 404 (archive not available)", false);
+                if (!resp.IsSuccessStatusCode) throw new IOException($"HTTP {(int)resp.StatusCode}");
+                var expected = resp.Content.Headers.ContentLength ?? 0;
+
+                long downloaded = 0;
+                var sw = Stopwatch.StartNew();
+                var lastReport = TimeSpan.Zero;
+                await using (var net = await resp.Content.ReadAsStreamAsync(hardStop).ConfigureAwait(false))
+                await using (var fs = new FileStream(part, FileMode.Create, FileAccess.Write, FileShare.Read, ChunkSize, useAsync: true))
+                {
+                    var buf = new byte[ChunkSize];
+                    using var idle = CancellationTokenSource.CreateLinkedTokenSource(hardStop);
+                    while (true)
+                    {
+                        idle.CancelAfter(Timeout.InfiniteTimeSpan);
+                        await pause.WaitAsync(hardStop).ConfigureAwait(false);
+                        idle.CancelAfter(TimeSpan.FromSeconds(60));
+                        var n = await net.ReadAsync(buf, idle.Token).ConfigureAwait(false);
+                        if (n == 0) break;
+                        await fs.WriteAsync(buf.AsMemory(0, n), hardStop).ConfigureAwait(false);
+                        downloaded += n;
+                        if (sw.Elapsed - lastReport > TimeSpan.FromMilliseconds(150))
+                        {
+                            lastReport = sw.Elapsed;
+                            var speed = downloaded / Math.Max(sw.Elapsed.TotalSeconds, 0.1);
+                            var eta = expected > 0 ? Math.Max(expected - downloaded, 0) / Math.Max(speed, 1) : 0;
+                            Progress?.Invoke(new(job, downloaded, expected, speed, eta));
+                        }
+                    }
+                }
+                if (expected > 0 && downloaded < expected)
+                    throw new IOException($"Connection closed early ({downloaded}/{expected} bytes)");
+
+                File.Move(part, path, overwrite: true);
+                Progress?.Invoke(new(job, downloaded, downloaded, 0, 0));
+                var sha = await Task.Run(() => Hashing.Sha1File(path, hardStop), hardStop).ConfigureAwait(false);
+                return new(job, true, sha, "", false, downloaded);
+            }
+            catch (OperationCanceledException) when (hardStop.IsCancellationRequested)
+            {
+                TryDelete(part);
+                return new(job, false, null, "Hard stop requested", true);
+            }
+            catch (Exception ex)
+            {
+                lastError = ex is OperationCanceledException ? "Transfer stalled (timeout)" : ex.Message;
+                try { await Task.Delay(1000, hardStop).ConfigureAwait(false); }
+                catch (OperationCanceledException) { TryDelete(part); return new(job, false, null, "Hard stop requested", true); }
+            }
+        }
+        TryDelete(part);
+        return new(job, false, null, lastError, false);
+    }
+
+    private static void TryDelete(string path)
+    {
+        try { if (File.Exists(path)) File.Delete(path); } catch { /* ignore */ }
     }
 }
