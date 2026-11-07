@@ -69,9 +69,20 @@ public sealed partial class TransferItem : ObservableObject
     [ObservableProperty] private string _speed = "";
     [ObservableProperty] private string _eta = "";
 
-    public void Update(long downloaded, double speed, double eta)
+    public void Update(long downloaded, double speed, double eta, long total = -1)
     {
         Downloaded = downloaded;
+        if (Total <= 0 && total <= 0)
+        {
+            // size unknown (GitHub builds the archive on the fly): marching block + bytes so far
+            var pos = (int)(downloaded / (128 * 1024) % 20);
+            Bar = string.Concat(Enumerable.Range(0, 20).Select(i => Math.Abs(i - pos) switch { 0 => '█', 1 => '▓', 2 => '▒', _ => '░' }));
+            Pct = "  ?%";
+            Speed = speed > 0 ? Fmt.Speed(speed) : "hashing";
+            Eta = Fmt.BytesOrZero(downloaded);
+            return;
+        }
+        if (Total <= 0) { var f0 = downloaded / (double)total; Bar = Fmt.Bar(f0, 20); Pct = $"{f0 * 100,3:0}%"; Speed = speed > 0 ? Fmt.Speed(speed) : "hashing"; Eta = speed > 0 ? "ETA " + Fmt.Eta(eta) : ""; return; }
         var f = Total > 0 ? downloaded / (double)Total : 0;
         Bar = Fmt.Bar(f, 20);
         Pct = $"{f * 100,3:0}%";
@@ -125,6 +136,8 @@ public sealed partial class RaceItem : ObservableObject
     public required int TotalFiles { get; init; }
     public required long TotalBytes { get; init; }
     public bool IsNew { get; init; }
+    /// <summary>Has generated archives whose size isn't known up front: progress counts files.</summary>
+    public bool UnknownSize { get; init; }
     public DateTime Started { get; } = DateTime.UtcNow;
 
     public int DoneFiles { get; private set; }
@@ -159,7 +172,7 @@ public sealed partial class RaceItem : ObservableObject
 
     public void Refresh()
     {
-        var pct = TotalBytes > 0 ? DoneBytes * 100.0 / TotalBytes : TotalFiles > 0 ? DoneFiles * 100.0 / TotalFiles : 100;
+        var pct = !UnknownSize && TotalBytes > 0 ? DoneBytes * 100.0 / TotalBytes : TotalFiles > 0 ? DoneFiles * 100.0 / TotalFiles : 100;
         Line = State switch
         {
             RaceState.Complete => Zipscript.Complete(DoneBytes, DoneFiles),

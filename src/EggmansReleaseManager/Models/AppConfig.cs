@@ -81,12 +81,26 @@ public class FilterRule
     /// <summary>Filename patterns that are always downloaded, overriding every exclude.</summary>
     public List<string> IncludePatterns { get; set; } = [];
 
+    /// <summary>Download GitHub's "Source code (zip)" for every release. Global: null = off. Repo: null = follow global.</summary>
+    public bool? SourceZip { get; set; }
+
+    /// <summary>Download GitHub's "Source code (tar.gz)" for every release. Global: null = off. Repo: null = follow global.</summary>
+    public bool? SourceTarGz { get; set; }
+
     [JsonIgnore]
-    public bool IsEmpty => ExcludePlatforms.Count == 0 && ExcludePatterns.Count == 0 && IncludePatterns.Count == 0;
+    public bool IsEmpty => ExcludePlatforms.Count == 0 && ExcludePatterns.Count == 0 && IncludePatterns.Count == 0
+                           && SourceZip is null && SourceTarGz is null;
 }
 
 public sealed class RepoFilterRule : FilterRule
 {
     /// <summary>When true the global rule is merged with this one; when false only this rule applies.</summary>
     public bool UseGlobal { get; set; } = true;
+
+    /// <summary>Also snapshot the default branch (Code > Download ZIP) when it gets new commits.
+    /// Repos with no releases are always snapshotted.</summary>
+    public bool Snapshot { get; set; }
+
+    [JsonIgnore]
+    public new bool IsEmpty => base.IsEmpty && !Snapshot;
 }

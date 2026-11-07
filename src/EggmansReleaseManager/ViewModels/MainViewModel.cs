@@ -29,6 +29,7 @@ public sealed partial class MainViewModel : ObservableObject
     private bool _stopRequested;
     private readonly ConcurrentQueue<DownloadResult> _results = new();
     private readonly Dictionary<DownloadJob, TransferItem> _transferMap = new();
+    private readonly Dictionary<DownloadJob, (string Branch, string Sha)> _snapshotJobs = new();
     private RunState? _run;
 
     public string Version { get; } = "v" + (typeof(MainViewModel).Assembly.GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "4");
@@ -96,6 +97,7 @@ public sealed partial class MainViewModel : ObservableObject
         public required string Repo { get; init; }
         public required int Total { get; init; }
         public required long TotalBytes { get; init; }
+        public bool HasUnknown { get; init; }
         public int Completed;
         public long CompletedBytes;
         public readonly List<AssetRecord> Records = [];
@@ -251,6 +253,11 @@ public sealed partial class MainViewModel : ObservableObject
             ? $"{_cfg.AutoUpdateInterval}m → {n:HH:mm}"
             : "OFF";
     }
+
+    private static bool SnapshotOnDisk(RepoInfo info) =>
+        info.Assets.Where(kv => Archives.IsSnapshotTag(kv.Key))
+            .SelectMany(kv => kv.Value.Values)
+            .Any(m => !string.IsNullOrEmpty(m.Path) && File.Exists(m.Path));
 
     // ═══════════════════════════ zipscript race board ═══════════════════════════
 
@@ -666,7 +673,40 @@ public sealed partial class MainViewModel : ObservableObject
         if (plan.Filtered > 0)
             AddLog($"{Bot}[NUKE] {repo} :: {plan.Filtered} of {plan.TotalSeen}F nuked ({Zipscript.Compact(info.NukedBytes)}) :: {Nuke.Summary(plan.Nukes)}", LogKind.Bot);
 
-        if (plan.TotalSeen == 0)
+        // 2b) default-branch snapshot ("Code > Download ZIP"): repos with no releases, or ones that opted in.
+        //     A new datestamped snapshot is only taken when the branch has a new commit.
+        var snapNote = "";
+        if (releases.All(r => r.Draft) || AssetFilter.WantsSnapshot(_cfg.Filters, repo))
+        {
+            try
+            {
+                var (branch, sha) = await GitHubApi.GetDefaultBranchHeadAsync(repo, _cfg.GithubToken, _hard.Token);
+                if (string.Equals(sha, info.SnapshotSha, StringComparison.OrdinalIgnoreCase) && SnapshotOnDisk(info))
+                {
+                    snapNote = " (snapshot current)";
+                    AddLog($"{repo}: {branch} snapshot is current ({sha[..7]})", LogKind.Ok);
+                }
+                else
+                {
+                    var stamp = Archives.SnapshotStamp(DateTime.Now);
+                    var job = new DownloadJob(Archives.SnapshotAsset(repo, branch, sha), Archives.SnapshotFolder(root, repo, stamp), Archives.SnapshotTag(stamp));
+                    _snapshotJobs[job] = (branch, sha);
+                    plan.Jobs.Add(job);
+                    var why = info.SnapshotSha is null ? "first snapshot" : $"new commits since {info.SnapshotSha[..Math.Min(7, info.SnapshotSha.Length)]}";
+                    AddLog($"{Bot}[SNAPSHOT] {repo}@{branch} {sha[..7]} :: {why} :: -> {Archives.SnapshotsFolder}\\{stamp}", LogKind.Bot);
+                }
+            }
+            catch (OperationCanceledException) when (_hard.IsCancellationRequested)
+            {
+                return "stopped";
+            }
+            catch (Exception ex)
+            {
+                AddLog($"Warning: snapshot of {repo} skipped: {ex.Message}", LogKind.Warn);
+            }
+        }
+
+        if (plan.TotalSeen == 0 && plan.Jobs.Count == 0 && snapNote.Length == 0)
         {
             Status("No release assets found.");
             AddLog($"{repo}: no assets found.", LogKind.Warn);
@@ -679,6 +719,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         if (plan.Jobs.Count == 0)
         {
+            filteredNote += snapNote;
             Status($"{repo}: already up to date{filteredNote}.");
             AddLog($"{repo}: already up to date{filteredNote}.", LogKind.Ok);
             info.LastResult = "Up to date" + filteredNote;
@@ -695,7 +736,7 @@ public sealed partial class MainViewModel : ObservableObject
     private async Task<string> Download(string repo, string root, UpdatePlan plan, bool batch, string filteredNote)
     {
         var info = _db.Ensure(repo);
-        _run = new RunState { Repo = repo, Total = plan.Jobs.Count, TotalBytes = plan.TotalBytes };
+        _run = new RunState { Repo = repo, Total = plan.Jobs.Count, TotalBytes = plan.TotalBytes, HasUnknown = plan.Jobs.Any(j => j.Asset.SizeUnknown) };
         while (_results.TryDequeue(out _)) { }
         Transfers.Clear();
         _transferMap.Clear();
@@ -705,18 +746,23 @@ public sealed partial class MainViewModel : ObservableObject
             var race = new RaceItem
             {
                 Repo = repo, Tag = g.Key, TotalFiles = g.Count(), TotalBytes = g.Sum(j => j.Asset.Size),
-                IsNew = !info.Assets.ContainsKey(g.Key),
+                IsNew = !info.Assets.ContainsKey(g.Key) && !Archives.IsSnapshotTag(g.Key),
+                UnknownSize = g.Any(j => j.Asset.SizeUnknown),
             };
             race.Refresh();
             race.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(RaceItem.State)) RaceStateChanged(); };
             Races.Insert(0, race);
             if (race.IsNew)
-                AddLog($"{Bot}[NEW] {repo} {g.Key} :: {race.TotalFiles}F {Zipscript.Compact(race.TotalBytes)} :: racing now", LogKind.Bot);
+                AddLog($"{Bot}[NEW] {repo} {g.Key} :: {race.TotalFiles}F {(race.UnknownSize ? "" : Zipscript.Compact(race.TotalBytes) + " ")}:: racing now", LogKind.Bot);
         }
         while (Races.Count > 200) Races.RemoveAt(Races.Count - 1);
 
-        Status($"{repo}: downloading {plan.Jobs.Count} asset(s) ({Fmt.Bytes(plan.TotalBytes)}) of {plan.TotalSeen} seen{filteredNote}...");
-        AddLog($"{repo}: starting {plan.Jobs.Count} asset(s), {Fmt.Bytes(plan.TotalBytes)} total...");
+        var unknown = plan.Jobs.Count(j => j.Asset.SizeUnknown);
+        var sizeText = unknown == 0 ? Fmt.BytesOrZero(plan.TotalBytes)
+                     : unknown == plan.Jobs.Count ? "size unknown until done"
+                     : $"{Fmt.BytesOrZero(plan.TotalBytes)} + {unknown} archive(s) of unknown size";
+        Status($"{repo}: downloading {plan.Jobs.Count} asset(s) ({sizeText}) of {plan.TotalSeen} seen{filteredNote}...");
+        AddLog($"{repo}: starting {plan.Jobs.Count} asset(s), {sizeText}...");
         info.LastChecked = Stamp.Now();
         SaveDb();
         UpdateProgress();
@@ -733,7 +779,7 @@ public sealed partial class MainViewModel : ObservableObject
         {
             if (_transferMap.TryGetValue(p.Job, out var item))
             {
-                item.Update(p.Downloaded, p.BytesPerSec, p.EtaSeconds);
+                item.Update(p.Downloaded, p.BytesPerSec, p.EtaSeconds, p.Total);
                 UpdateProgress();
             }
         });
@@ -809,8 +855,20 @@ public sealed partial class MainViewModel : ObservableObject
         while (_results.TryDequeue(out var r))
         {
             run.Completed++;
-            run.CompletedBytes += r.Job.Asset.Size;
+            run.CompletedBytes += r.ActualBytes;
             if (_transferMap.Remove(r.Job, out var item)) Transfers.Remove(item);
+            if (_snapshotJobs.Remove(r.Job, out var snap))
+            {
+                if (r.Success && r.Sha1 is not null)
+                {
+                    var si = _db.Ensure(run.Repo);
+                    si.SnapshotSha = snap.Sha;
+                    si.SnapshotBranch = snap.Branch;
+                    try { Archives.WriteSnapshotInfo(r.Job.Folder, run.Repo, snap.Branch, snap.Sha, RatioUser); }
+                    catch (Exception ex) { AddLog($"Warning: {Archives.SnapshotInfoFile}: {ex.Message}", LogKind.Warn); }
+                }
+                else Archives.RemoveIfEmpty(r.Job.Folder);
+            }
 
             if (r.Cancelled && !r.Success)
             {
@@ -820,7 +878,7 @@ public sealed partial class MainViewModel : ObservableObject
 
             if (Races.FirstOrDefault(x => x.IsRacing && x.Repo == run.Repo && x.Tag == r.Job.Tag) is { } race)
             {
-                race.Add(r.Success && r.Sha1 is not null, r.Job.Asset.Size);
+                race.Add(r.Success && r.Sha1 is not null, r.ActualBytes);
                 if (race.IsFinishedCount) FinishRace(race, race.FailedFiles == 0 ? RaceState.Complete : RaceState.Incomplete);
             }
             if (r.Success) _downloadedThisRun++;
@@ -830,7 +888,7 @@ public sealed partial class MainViewModel : ObservableObject
                 Repo = run.Repo,
                 Tag = r.Job.Tag,
                 Name = r.Job.Asset.Name,
-                SizeBytes = r.Job.Asset.Size,
+                SizeBytes = r.ActualBytes,
                 Url = r.Job.Asset.BrowserDownloadUrl,
                 Path = r.Job.FilePath,
                 Sha1 = r.Sha1,
@@ -845,14 +903,14 @@ public sealed partial class MainViewModel : ObservableObject
                     info.Assets[r.Job.Tag] = tagAssets = new Dictionary<string, AssetMeta>();
                 tagAssets[r.Job.Asset.Name] = new AssetMeta
                 {
-                    SizeBytes = r.Job.Asset.Size,
+                    SizeBytes = r.ActualBytes,
                     Sha1 = r.Sha1,
                     Path = r.Job.FilePath,
                     DownloadedAt = Stamp.Now(),
                 };
                 SaveDbSoon();
-                if (_cfg.Stats is { } st) { st.DownloadedBytes += r.Job.Asset.Size; st.DownloadedFiles++; }
-                AddLog($"{r.Job.Tag}/{r.Job.Asset.Name} saved ({Fmt.Bytes(r.Job.Asset.Size)})", LogKind.Ok);
+                if (_cfg.Stats is { } st && !r.Job.HashOnly) { st.DownloadedBytes += r.ActualBytes; st.DownloadedFiles++; }
+                AddLog($"{r.Job.Tag}/{r.Job.Asset.Name} {(r.Job.HashOnly ? "indexed" : "saved")} ({Fmt.Bytes(r.ActualBytes)})", LogKind.Ok);
             }
         }
         UpdateProgress();
@@ -865,10 +923,11 @@ public sealed partial class MainViewModel : ObservableObject
         if (run is null) return;
         var inflight = _transferMap.Values.Sum(t => t.Downloaded);
         var done = run.CompletedBytes + inflight;
-        var frac = run.TotalBytes > 0 ? done / (double)run.TotalBytes : run.Total > 0 ? run.Completed / (double)run.Total : 0;
+        // generated archives have no size up front -> count files instead of bytes
+        var frac = !run.HasUnknown && run.TotalBytes > 0 ? done / (double)run.TotalBytes : run.Total > 0 ? run.Completed / (double)run.Total : 0;
         ProgressBar = Fmt.Bar(frac, 48);
         ProgressPct = $"{Math.Clamp(frac, 0, 1) * 100:0.0}%";
-        CountsText = $"FiLES {run.Completed}/{run.Total} · OK {run.Ok} · FAiL {run.Failed} · {Fmt.Bytes(done)} / {Fmt.Bytes(run.TotalBytes)}";
+        CountsText = $"FiLES {run.Completed}/{run.Total} · OK {run.Ok} · FAiL {run.Failed} · {Fmt.Bytes(done)} / {Fmt.BytesOrZero(run.TotalBytes)}{(run.HasUnknown ? " + ?" : "")}";
     }
 
     // ═══════════════════════════ pause / stop ═══════════════════════════

@@ -34,6 +34,10 @@ public sealed class RepoInfo
     public int NukedFiles { get; set; }
     public long NukedBytes { get; set; }
 
+    /// <summary>Commit the last default-branch snapshot was taken from (only a new commit triggers a new one).</summary>
+    public string? SnapshotSha { get; set; }
+    public string? SnapshotBranch { get; set; }
+
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? Extra { get; set; }
 

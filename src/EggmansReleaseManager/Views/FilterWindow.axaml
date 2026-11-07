@@ -5,7 +5,7 @@
         x:Class="EggmansReleaseManager.Views.FilterWindow"
         x:DataType="vm:FilterEditorViewModel"
         Title="Filter Control"
-        Width="1180" Height="800" MinWidth="980" MinHeight="640"
+        Width="1180" Height="880" MinWidth="980" MinHeight="680"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
@@ -74,10 +74,22 @@
                 <TextBlock Classes="dim" TextWrapping="Wrap"
                            Text="OS/ARCH: skipped only when ALL of its detected OS (or arch) tags are ticked, so 'app-win-linux.zip' survives a LiNUX skip. KiND (source/checksums/debug): skipped if any matches. Untagged files count as universal and are kept." />
 
+                <TextBlock Classes="accent" Text="ALSO GET ── GitHub's auto-made archives (not uploaded assets, so the rules above don't touch them)" />
+                <WrapPanel>
+                  <CheckBox Content="Source code (.zip)" IsChecked="{Binding SourceZip}" IsThreeState="{Binding IsRepoScope}" Margin="0,0,24,0"
+                            ToolTip.Tip="Saved as &lt;repo&gt;-&lt;tag&gt;_source.zip in each release folder" />
+                  <CheckBox Content="Source code (.tar.gz)" IsChecked="{Binding SourceTarGz}" IsThreeState="{Binding IsRepoScope}" Margin="0,0,24,0"
+                            ToolTip.Tip="Saved as &lt;repo&gt;-&lt;tag&gt;_source.tar.gz in each release folder" />
+                  <CheckBox Content="snapshot default branch on new commits (Code &gt; Download ZIP)" IsChecked="{Binding Snapshot}" IsVisible="{Binding IsRepoScope}"
+                            ToolTip.Tip="Saved in _snapshots\YYYY-MM-DD_hh-mm-ss\. Repos with no releases always get this." />
+                </WrapPanel>
+                <TextBlock Classes="dim" TextWrapping="Wrap"
+                           Text="Source archives are added for every release (past ones too, on the next update). [·] = follow GLOBAL. Repos with no releases always get a default-branch snapshot in _snapshots\YYYY-MM-DD_hh-mm-ss\, but only when it has new commits." />
+
                 <Grid ColumnDefinitions="*,12,*">
                   <StackPanel Grid.Column="0" Spacing="4">
                     <TextBlock Classes="accent" Text="SKiP PATTERNS (one per line)" />
-                    <TextBox Text="{Binding ExcludePatternsText}" AcceptsReturn="True" Height="96" TextWrapping="NoWrap" VerticalContentAlignment="Top"
+                    <TextBox Text="{Binding ExcludePatternsText}" AcceptsReturn="True" Height="70" TextWrapping="NoWrap" VerticalContentAlignment="Top"
                              Watermark="e.g.&#x0a;*-linux-*&#x0a;re:-pgo\.(zip|tar\.gz)$" />
                     <WrapPanel>
                       <TextBlock Classes="dim" Text="quick add: " VerticalAlignment="Center" />
@@ -89,7 +101,7 @@
                   </StackPanel>
                   <StackPanel Grid.Column="2" Spacing="4">
                     <TextBlock Classes="accent" Text="ALWAYS GET (beats every skip rule)" />
-                    <TextBox Text="{Binding IncludePatternsText}" AcceptsReturn="True" Height="96" TextWrapping="NoWrap" VerticalContentAlignment="Top"
+                    <TextBox Text="{Binding IncludePatternsText}" AcceptsReturn="True" Height="70" TextWrapping="NoWrap" VerticalContentAlignment="Top"
                              Watermark="e.g.&#x0a;*-windows-*" />
                     <TextBlock Classes="dim" TextWrapping="Wrap"
                                Text="* = anything, ? = one char. No wildcard = 'contains'. Prefix re: for a regex. Case-insensitive." />

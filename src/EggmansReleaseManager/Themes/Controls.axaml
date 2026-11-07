@@ -87,6 +87,11 @@
       <Setter Property="Text" Value="[■]" />
       <Setter Property="Foreground" Value="{DynamicResource OkBrush}" />
     </Style>
+    <!-- three-state boxes: [·] = follow the GLOBAL setting -->
+    <Style Selector="^:indeterminate /template/ TextBlock#PART_Box">
+      <Setter Property="Text" Value="[·]" />
+      <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}" />
+    </Style>
     <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Foreground" Value="{DynamicResource HiBrush}" />
     </Style>

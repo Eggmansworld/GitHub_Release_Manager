@@ -69,6 +69,10 @@ public sealed partial class FilterEditorViewModel : ObservableObject
     [ObservableProperty] private string _patternWarning = "";
     [ObservableProperty] private string _previewStatus = "Pick a repo on the left and hit [ PREViEW ] to test these rules against its real releases.";
     [ObservableProperty] private bool _isPreviewing;
+    /// <summary>Source code archives. Global: true/false. Repo: null = follow GLOBAL.</summary>
+    [ObservableProperty] private bool? _sourceZip;
+    [ObservableProperty] private bool? _sourceTarGz;
+    [ObservableProperty] private bool _snapshot;
 
     public bool IsRepoScope => SelectedScope is { IsGlobal: false };
     public bool EditorEnabled => SelectedScope is { IsGlobal: true } || HasCustomRule;
@@ -123,6 +127,17 @@ public sealed partial class FilterEditorViewModel : ObservableObject
                 p.Excluded = rule?.ExcludePlatforms.Contains(p.Tag.Id, StringComparer.OrdinalIgnoreCase) == true;
             ExcludePatternsText = string.Join(Environment.NewLine, rule?.ExcludePatterns ?? []);
             IncludePatternsText = string.Join(Environment.NewLine, rule?.IncludePatterns ?? []);
+            if (scope is { IsGlobal: true })
+            {
+                SourceZip = rule?.SourceZip == true;
+                SourceTarGz = rule?.SourceTarGz == true;
+            }
+            else
+            {
+                SourceZip = rule?.SourceZip;
+                SourceTarGz = rule?.SourceTarGz;
+            }
+            Snapshot = (rule as RepoFilterRule)?.Snapshot == true;
         }
         finally { _loading = false; }
         OnEdited();
@@ -133,6 +148,9 @@ public sealed partial class FilterEditorViewModel : ObservableObject
         if (scope.IsGlobal)
         {
             Fill(_work.Global);
+            // global: unticked is stored as "not set" so the config stays clean
+            _work.Global.SourceZip = SourceZip == true ? true : null;
+            _work.Global.SourceTarGz = SourceTarGz == true ? true : null;
             return;
         }
         if (!HasCustomRule) { RemoveRule(scope.Key); scope.HasRule = false; return; }
@@ -140,6 +158,9 @@ public sealed partial class FilterEditorViewModel : ObservableObject
         if (rule is null) { rule = new RepoFilterRule(); _work.Repos[scope.Key] = rule; }
         rule.UseGlobal = UseGlobal;
         Fill(rule);
+        rule.SourceZip = SourceZip;
+        rule.SourceTarGz = SourceTarGz;
+        rule.Snapshot = Snapshot;
         scope.HasRule = true;
     }
 
@@ -157,6 +178,9 @@ public sealed partial class FilterEditorViewModel : ObservableObject
     partial void OnUseGlobalChanged(bool value) => OnEdited();
     partial void OnExcludePatternsTextChanged(string value) => OnEdited();
     partial void OnIncludePatternsTextChanged(string value) => OnEdited();
+    partial void OnSourceZipChanged(bool? value) => OnEdited();
+    partial void OnSourceTarGzChanged(bool? value) => OnEdited();
+    partial void OnSnapshotChanged(bool value) => OnEdited();
     partial void OnTestFileNameChanged(string value) => RunTest();
 
     [ObservableProperty] private string _inheritedSummary = "";
@@ -168,6 +192,8 @@ public sealed partial class FilterEditorViewModel : ObservableObject
         if (g.ExcludePlatforms.Count > 0) parts.Add("skip " + string.Join(", ", g.ExcludePlatforms.Select(id => PlatformDetector.Find(id)?.Label ?? id)));
         if (g.ExcludePatterns.Count > 0) parts.Add($"{g.ExcludePatterns.Count} skip pattern(s)");
         if (g.IncludePatterns.Count > 0) parts.Add($"{g.IncludePatterns.Count} always-get pattern(s)");
+        var src = new[] { g.SourceZip == true ? "zip" : null, g.SourceTarGz == true ? "tar.gz" : null }.Where(x => x is not null).ToList();
+        if (src.Count > 0) parts.Add("source " + string.Join("+", src));
         var global = parts.Count == 0 ? "nothing" : string.Join(" · ", parts);
         InheritedSummary = !HasCustomRule ? $"► follows GLOBAL: {global}"
             : UseGlobal ? $"► plus inherited from GLOBAL: {global}"
@@ -218,7 +244,7 @@ public sealed partial class FilterEditorViewModel : ObservableObject
             int keep = 0, skip = 0;
             long keepBytes = 0, skipBytes = 0;
             foreach (var rel in releases.Where(r => !r.Draft))
-                foreach (var a in rel.Assets)
+                foreach (var a in rel.Assets.Concat(SourceRows(repo, rel, filter)))
                 {
                     var d = filter.Evaluate(a.Name);
                     if (d.Keep) { keep++; keepBytes += a.Size; } else { skip++; skipBytes += a.Size; }
@@ -226,7 +252,7 @@ public sealed partial class FilterEditorViewModel : ObservableObject
                     {
                         Tag = rel.FolderTag,
                         Name = a.Name,
-                        Size = Fmt.Bytes(a.Size),
+                        Size = a.SizeUnknown ? "?" : Fmt.Bytes(a.Size),
                         Keep = d.Keep,
                         Reason = d.Reason,
                         Platforms = d.Tags.Count == 0 ? "-" : string.Join(",", d.Tags),
@@ -240,6 +266,14 @@ public sealed partial class FilterEditorViewModel : ObservableObject
             PreviewStatus = "ERROR: " + ex.Message;
         }
         finally { IsPreviewing = false; }
+    }
+
+    /// <summary>The generated "Source code" archives this release would get (only the enabled ones).</summary>
+    private static IEnumerable<GhAsset> SourceRows(string repo, GhRelease rel, AssetFilter filter)
+    {
+        if (string.IsNullOrWhiteSpace(rel.TagName)) yield break;
+        if (filter.SourceZip) yield return Archives.SourceAsset(repo, rel.TagName!, Archives.SourceKind.Zip);
+        if (filter.SourceTarGz) yield return Archives.SourceAsset(repo, rel.TagName!, Archives.SourceKind.TarGz);
     }
 
     [RelayCommand]
