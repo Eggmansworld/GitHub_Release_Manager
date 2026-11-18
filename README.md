@@ -41,6 +41,7 @@ A multi-repo GitHub release downloader with metadata tracking, incremental updat
 - **Sound fx**: a ZMODEM-style triple beep when downloads finish, and the NO CARRIER hang-up when you quit. You can switch them off in SETUP.
 - **31337 5P34K**: a toggle in SETUP that runs every bit of on-screen text through an elite translator. Text you type is left alone.
 - **Source code archives**: optionally grab GitHub's "Source code" zip and/or tar.gz for every release, saved as `<repo>-<tag>_source.zip` / `.tar.gz`. See [Source code archives and branch snapshots](#source-code-archives-and-branch-snapshots).
+- **Release limit**: archive only the newest N releases (counted by publish date), globally or per repo. The default is all; a custom limit starts at 50. See [Release limit](#release-limit).
 - **Branch snapshots**: repos with no releases get a datestamped *Code → Download ZIP* snapshot of their default branch whenever it gets new commits. Other repos can opt in.
 - **New look**: four colour schemes (ANSi Classic, Amber Terminal, Green Phosphor, ACiD Trip) with a live preview, a configurable font, and CRT and scroller effects you can switch off.
 - **Single portable exe**: no Python, pip or batch files. Config and DB still live next to the exe.
@@ -179,6 +180,17 @@ Cleaned files are removed from the repo DB, and tag folders left holding only `r
 A release whose assets are all filtered out gets no folder. The Last Result column reports how many assets were filtered (e.g. `Up to date (140 filtered)`).
 
 ![Filter control](docs/filters_ansi.png)
+
+### Release limit
+
+Some repos have hundreds of releases. **RELEASE LiMiT** in Filter Control caps how many are archived:
+
+- **ALL releases** is the default.
+- **newest N** archives only the N most recent releases. N defaults to 50, and you can change it.
+- Releases are counted **newest to oldest by publish date**. Drafts don't count.
+- In a repo's own rules you can also pick **follow GLOBAL**. That lets you set a global limit and still keep everything for one repo, or the other way round.
+- Older releases already in your archive are **left alone**. They're just no longer checked.
+- A limit also saves API calls. For example, newest 50 needs 1 page instead of 6 for a 500-release repo.
 
 ### Source code archives and branch snapshots
 

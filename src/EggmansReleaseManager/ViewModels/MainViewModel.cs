@@ -632,7 +632,8 @@ public sealed partial class MainViewModel : ObservableObject
         List<GhRelease> releases;
         try
         {
-            releases = await GitHubApi.GetAllReleasesAsync(repo, _cfg.GithubToken, _hard.Token);
+            var limit = AssetFilter.For(_cfg.Filters, repo).ReleaseLimit;
+            releases = await GitHubApi.GetAllReleasesAsync(repo, _cfg.GithubToken, _hard.Token, AssetFilter.PagesFor(limit));
         }
         catch (OperationCanceledException) when (_hard.IsCancellationRequested)
         {
@@ -653,6 +654,11 @@ public sealed partial class MainViewModel : ObservableObject
 
         // 2) plan (filters + skip rules), off the UI thread since it touches disk
         var filter = AssetFilter.For(_cfg.Filters, repo);
+        var hasReleases = releases.Any(r => !r.Draft);
+        var published = releases.Count(r => !r.Draft);
+        releases = AssetFilter.ApplyReleaseLimit(releases, filter.ReleaseLimit);
+        if (filter.ReleaseLimit is { } lim && published > releases.Count)
+            AddLog($"{repo}: release limit - archiving the newest {lim} release(s), older ones are left alone", LogKind.Info);
         var skip = SkipExisting;
         UpdatePlan plan;
         try
@@ -676,7 +682,7 @@ public sealed partial class MainViewModel : ObservableObject
         // 2b) default-branch snapshot ("Code > Download ZIP"): repos with no releases, or ones that opted in.
         //     A new datestamped snapshot is only taken when the branch has a new commit.
         var snapNote = "";
-        if (releases.All(r => r.Draft) || AssetFilter.WantsSnapshot(_cfg.Filters, repo))
+        if (!hasReleases || AssetFilter.WantsSnapshot(_cfg.Filters, repo))
         {
             try
             {

@@ -6,6 +6,7 @@ public sealed class GhRelease
     public string? Name { get; set; }
     public string? Body { get; set; }
     public string? PublishedAt { get; set; }
+    public string? CreatedAt { get; set; }
     public bool Draft { get; set; }
     public bool Prerelease { get; set; }
     public List<GhAsset> Assets { get; set; } = [];
