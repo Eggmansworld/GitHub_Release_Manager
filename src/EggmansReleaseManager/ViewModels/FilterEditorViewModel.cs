@@ -74,6 +74,14 @@ public sealed partial class FilterEditorViewModel : ObservableObject
     [ObservableProperty] private bool? _sourceTarGz;
     [ObservableProperty] private bool _snapshot;
 
+    /// <summary>Release limit: exactly one of these is true. Follow = repo uses the GLOBAL limit.</summary>
+    [ObservableProperty] private bool _limitFollow;
+    [ObservableProperty] private bool _limitAll = true;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(LimitCountEnabled))] private bool _limitCustom;
+    [ObservableProperty] private decimal _limitCount = DefaultCustomLimit;
+    public const int DefaultCustomLimit = 50;
+    public bool LimitCountEnabled => LimitCustom;
+
     public bool IsRepoScope => SelectedScope is { IsGlobal: false };
     public bool EditorEnabled => SelectedScope is { IsGlobal: true } || HasCustomRule;
     public string ScopeTitle => SelectedScope is null ? "" : SelectedScope.IsGlobal ? "GLOBAL RULES (apply to every repo)" : $"REPO RULES :: {SelectedScope.Key}";
@@ -138,6 +146,13 @@ public sealed partial class FilterEditorViewModel : ObservableObject
                 SourceTarGz = rule?.SourceTarGz;
             }
             Snapshot = (rule as RepoFilterRule)?.Snapshot == true;
+
+            var lim = rule?.ReleaseLimit;
+            var isGlobal = scope is { IsGlobal: true };
+            LimitFollow = !isGlobal && lim is null;
+            LimitAll = lim is 0 || (isGlobal && lim is null);
+            LimitCustom = lim is > 0;
+            LimitCount = lim is > 0 ? lim.Value : DefaultCustomLimit;
         }
         finally { _loading = false; }
         OnEdited();
@@ -151,6 +166,7 @@ public sealed partial class FilterEditorViewModel : ObservableObject
             // global: unticked is stored as "not set" so the config stays clean
             _work.Global.SourceZip = SourceZip == true ? true : null;
             _work.Global.SourceTarGz = SourceTarGz == true ? true : null;
+            _work.Global.ReleaseLimit = LimitCustom ? ClampLimit() : null;
             return;
         }
         if (!HasCustomRule) { RemoveRule(scope.Key); scope.HasRule = false; return; }
@@ -161,6 +177,7 @@ public sealed partial class FilterEditorViewModel : ObservableObject
         rule.SourceZip = SourceZip;
         rule.SourceTarGz = SourceTarGz;
         rule.Snapshot = Snapshot;
+        rule.ReleaseLimit = LimitCustom ? ClampLimit() : LimitAll ? 0 : null;
         scope.HasRule = true;
     }
 
@@ -181,6 +198,12 @@ public sealed partial class FilterEditorViewModel : ObservableObject
     partial void OnSourceZipChanged(bool? value) => OnEdited();
     partial void OnSourceTarGzChanged(bool? value) => OnEdited();
     partial void OnSnapshotChanged(bool value) => OnEdited();
+    partial void OnLimitFollowChanged(bool value) { if (value) OnEdited(); }
+    partial void OnLimitAllChanged(bool value) { if (value) OnEdited(); }
+    partial void OnLimitCustomChanged(bool value) { if (value) OnEdited(); }
+    partial void OnLimitCountChanged(decimal value) => OnEdited();
+
+    private int ClampLimit() => (int)Math.Clamp(LimitCount, 1, 100000);
     partial void OnTestFileNameChanged(string value) => RunTest();
 
     [ObservableProperty] private string _inheritedSummary = "";
@@ -194,6 +217,7 @@ public sealed partial class FilterEditorViewModel : ObservableObject
         if (g.IncludePatterns.Count > 0) parts.Add($"{g.IncludePatterns.Count} always-get pattern(s)");
         var src = new[] { g.SourceZip == true ? "zip" : null, g.SourceTarGz == true ? "tar.gz" : null }.Where(x => x is not null).ToList();
         if (src.Count > 0) parts.Add("source " + string.Join("+", src));
+        if (g.ReleaseLimit is > 0) parts.Add($"newest {g.ReleaseLimit} releases");
         var global = parts.Count == 0 ? "nothing" : string.Join(" · ", parts);
         InheritedSummary = !HasCustomRule ? $"► follows GLOBAL: {global}"
             : UseGlobal ? $"► plus inherited from GLOBAL: {global}"
@@ -239,11 +263,12 @@ public sealed partial class FilterEditorViewModel : ObservableObject
         PreviewStatus = $"Asking GitHub about {repo}...";
         try
         {
-            var releases = await GitHubApi.GetAllReleasesAsync(repo, _token, CancellationToken.None, maxPages: 1);
             var filter = CurrentFilter();
+            var fetched = await GitHubApi.GetAllReleasesAsync(repo, _token, CancellationToken.None, maxPages: 1);
+            var releases = AssetFilter.ApplyReleaseLimit(fetched, filter.ReleaseLimit);
             int keep = 0, skip = 0;
             long keepBytes = 0, skipBytes = 0;
-            foreach (var rel in releases.Where(r => !r.Draft))
+            foreach (var rel in releases)
                 foreach (var a in rel.Assets.Concat(SourceRows(repo, rel, filter)))
                 {
                     var d = filter.Evaluate(a.Name);
@@ -259,7 +284,8 @@ public sealed partial class FilterEditorViewModel : ObservableObject
                     });
                 }
             PreviewStatus = $"{releases.Count} release(s) · GET {keep} ({Fmt.Bytes(keepBytes)}) · SKIP {skip} ({Fmt.Bytes(skipBytes)})" +
-                            (releases.Count >= 100 ? " · showing newest 100 releases" : "");
+                            (filter.ReleaseLimit is { } lim ? $" · limit: newest {lim}" : "") +
+                            (fetched.Count >= 100 ? " · preview shows the newest 100 at most" : "");
         }
         catch (Exception ex)
         {

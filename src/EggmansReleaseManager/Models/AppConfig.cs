@@ -87,9 +87,15 @@ public class FilterRule
     /// <summary>Download GitHub's "Source code (tar.gz)" for every release. Global: null = off. Repo: null = follow global.</summary>
     public bool? SourceTarGz { get; set; }
 
+    /// <summary>
+    /// How many releases to archive, newest first. Global: null/0 = all.
+    /// Repo: null = follow global, 0 = all, N = newest N.
+    /// </summary>
+    public int? ReleaseLimit { get; set; }
+
     [JsonIgnore]
     public bool IsEmpty => ExcludePlatforms.Count == 0 && ExcludePatterns.Count == 0 && IncludePatterns.Count == 0
-                           && SourceZip is null && SourceTarGz is null;
+                           && SourceZip is null && SourceTarGz is null && ReleaseLimit is null;
 }
 
 public sealed class RepoFilterRule : FilterRule

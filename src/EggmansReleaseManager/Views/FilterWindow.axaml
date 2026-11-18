@@ -83,8 +83,21 @@
                   <CheckBox Content="snapshot default branch on new commits (Code &gt; Download ZIP)" IsChecked="{Binding Snapshot}" IsVisible="{Binding IsRepoScope}"
                             ToolTip.Tip="Saved in _snapshots\YYYY-MM-DD_hh-mm-ss\. Repos with no releases always get this." />
                 </WrapPanel>
+                <StackPanel Orientation="Horizontal" Spacing="18">
+                  <TextBlock Classes="accent" Text="RELEASE LiMiT ──" VerticalAlignment="Center" />
+                  <RadioButton GroupName="limit" Content="follow GLOBAL" IsChecked="{Binding LimitFollow}" IsVisible="{Binding IsRepoScope}" VerticalAlignment="Center" />
+                  <RadioButton GroupName="limit" Content="ALL releases" IsChecked="{Binding LimitAll}" VerticalAlignment="Center" />
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <RadioButton GroupName="limit" Content="newest" IsChecked="{Binding LimitCustom}" VerticalAlignment="Center" />
+                    <NumericUpDown Value="{Binding LimitCount}" Minimum="1" Maximum="100000" Increment="10" FormatString="0" Width="130"
+                                   IsEnabled="{Binding LimitCountEnabled}" />
+                    <TextBlock Text="releases" VerticalAlignment="Center" />
+                  </StackPanel>
+                </StackPanel>
                 <TextBlock Classes="dim" TextWrapping="Wrap"
-                           Text="Source archives are added for every release (past ones too, on the next update). [·] = follow GLOBAL. Repos with no releases always get a default-branch snapshot in _snapshots\YYYY-MM-DD_hh-mm-ss\, but only when it has new commits." />
+                           Text="Counted newest to oldest by publish date. Older releases already in your archive are left alone - they just stop being checked. A limit also means fewer API calls." />
+                <TextBlock Classes="dim" TextWrapping="Wrap"
+                           Text="Source archives are added for every release inside the limit (past ones too, on the next update). [·] = follow GLOBAL. Repos with no releases always get a default-branch snapshot in _snapshots\YYYY-MM-DD_hh-mm-ss\, but only when it has new commits." />
 
                 <Grid ColumnDefinitions="*,12,*">
                   <StackPanel Grid.Column="0" Spacing="4">

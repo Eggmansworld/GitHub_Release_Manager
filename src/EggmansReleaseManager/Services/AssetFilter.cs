@@ -23,6 +23,9 @@ public sealed class AssetFilter
     /// <summary>Effective "Source code" archive choices for this repo.</summary>
     public bool SourceZip { get; }
     public bool SourceTarGz { get; }
+
+    /// <summary>Newest N releases only; null = all.</summary>
+    public int? ReleaseLimit { get; }
     private readonly string? _repoKey;
 
     public AssetFilter(FilterRule rule, string? repoKey = null)
@@ -30,6 +33,7 @@ public sealed class AssetFilter
         _repoKey = repoKey;
         SourceZip = rule.SourceZip == true;
         SourceTarGz = rule.SourceTarGz == true;
+        ReleaseLimit = rule.ReleaseLimit is > 0 ? rule.ReleaseLimit : null;
         _excludedTags = new HashSet<string>(rule.ExcludePlatforms, StringComparer.OrdinalIgnoreCase);
         _exclude = Compile(rule.ExcludePatterns);
         _include = Compile(rule.IncludePatterns);
@@ -38,6 +42,23 @@ public sealed class AssetFilter
 
     /// <summary>Build the effective filter for a repo from the saved config.</summary>
     public static AssetFilter For(FilterConfig cfg, string repoKey) => new(Effective(cfg, repoKey), repoKey);
+
+    /// <summary>
+    /// Published releases newest-first (by publish date, falling back to creation date), drafts dropped,
+    /// cut to the newest <paramref name="limit"/> when one is set.
+    /// </summary>
+    public static List<GhRelease> ApplyReleaseLimit(IEnumerable<GhRelease> releases, int? limit)
+    {
+        var ordered = releases.Where(r => !r.Draft)
+            .Select((r, i) => (r, i, at: Stamp.Parse(r.PublishedAt) ?? Stamp.Parse(r.CreatedAt)))
+            .OrderByDescending(x => x.at ?? DateTime.MinValue)
+            .ThenBy(x => x.i)                               // keep GitHub's order for ties / undated
+            .Select(x => x.r);
+        return (limit is > 0 ? ordered.Take(limit.Value) : ordered).ToList();
+    }
+
+    /// <summary>API pages (100 releases each) worth fetching for a limit; a little slack for drafts/ordering.</summary>
+    public static int PagesFor(int? limit) => limit is > 0 ? (limit.Value + 10 + 99) / 100 : int.MaxValue;
 
     /// <summary>Whether this repo opted in to default-branch snapshots.</summary>
     public static bool WantsSnapshot(FilterConfig cfg, string repoKey) =>
@@ -56,6 +77,7 @@ public sealed class AssetFilter
             IncludePatterns = global.IncludePatterns.Concat(repo.IncludePatterns).ToList(),
             SourceZip = repo.SourceZip ?? global.SourceZip,
             SourceTarGz = repo.SourceTarGz ?? global.SourceTarGz,
+            ReleaseLimit = repo.ReleaseLimit ?? global.ReleaseLimit,
         };
     }
 
